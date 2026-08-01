@@ -1,4 +1,4 @@
-# User-service
+# AI Porject API
 This is a service reserved for authentication and authorization based on Oauth2 protocol.
 
 ## Tech stack
