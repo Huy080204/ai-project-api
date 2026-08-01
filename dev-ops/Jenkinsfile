@@ -60,7 +60,7 @@ def buildDev(){
     if (_BRANCH_NAME.matches(TARTGET_BRANCH_DEPLOY)) {
 
         stage ("Build source") {
-            withEnv( ["PATH+MAVEN=/usr/local/src/apache-maven/bin"] ) {
+            withEnv( ["PATH+MAVEN=/usr/bin"] ) {
                 sh """
                     cp -r source/ai-project-api/* dev-ops/
                     cd dev-ops
