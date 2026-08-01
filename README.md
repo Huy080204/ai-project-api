@@ -1,4 +1,4 @@
-# User-service
+# AI Porject API
 This is a service reserved for authentication and authorization based on Oauth2 protocol.
 
 ## Tech stack
@@ -10,7 +10,7 @@ This is a service reserved for authentication and authorization based on Oauth2 
 ## Service configuration
 - Database config
     ```
-    spring.datasource.url=jdbc:postgresql://<db host>:<db port>/<db name>
+    spring.datasource.url=jdbc:mysql://<db host>:<db port>/<db name>
     spring.datasource.username=<username>
     spring.datasource.password=<password>
     ```
