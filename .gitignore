@@ -1,0 +1,39 @@
+/target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+*.log
+
+### NetBeans ###
+/nbproject/private/
+/build/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# project ignore
+source/ai-project-api/application-production.properties
+source/ai-project-api/deploy_ec2.sh
+source/ai-project-api/execute_jar_on_vm.sh
+source/ai-project-api/target
+source/ai-project-api/logs
+source/ai-project-api/.idea
+source/ai-project-api/*.iml
+.claude
+vibe_setting.json
+ai-setup
+ai-setup.ps1
