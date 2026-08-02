@@ -321,8 +321,6 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <skip>true</skip>
-
                     <mainClass>com.ai.api.Application</mainClass>
                     <excludes>
                         <exclude>
