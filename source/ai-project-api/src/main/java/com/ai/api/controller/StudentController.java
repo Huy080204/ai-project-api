@@ -121,6 +121,11 @@ public class StudentController extends ABasicController {
             throw new BadRequestException("[Account] Phone existed", ErrorCode.ACCOUNT_ERROR_PHONE_EXISTED);
         }
 
+        if (!form.getUsername().equals(account.getUsername())
+                && accountRepository.existsByUsername(form.getUsername())) {
+            throw new BadRequestException("[Account] Username exist", ErrorCode.ACCOUNT_ERROR_USERNAME_EXIST);
+        }
+
         if (StringUtils.isNoneBlank(form.getFullName())) {
             account.setFullName(form.getFullName());
         }
@@ -136,6 +141,10 @@ public class StudentController extends ABasicController {
         }
         if (StringUtils.isNoneBlank(form.getPhone())) {
             account.setPhone(form.getPhone());
+        }
+        account.setUsername(form.getUsername());
+        if (StringUtils.isNoneBlank(form.getPassword())) {
+            account.setPassword(passwordEncoder.encode(form.getPassword()));
         }
         accountRepository.save(account);
 
@@ -185,5 +194,12 @@ public class StudentController extends ABasicController {
     public ApiMessageDto<ResponseListDto<List<StudentDto>>> autoComplete(StudentCriteria criteria, Pageable pageable) {
         Page<Student> students = studentRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(students, studentMapper::fromEntityToStudentAutoCompleteDtoList), "Get auto complete students success");
+    }
+
+    @GetMapping(value = "/profile", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ApiMessageDto<StudentDto> profile() {
+        Student student = studentRepository.findByIdAndStatus(getCurrentUser(), AIConstant.STATUS_ACTIVE)
+                .orElseThrow(() -> new NotFoundException("[Student] Student not found", ErrorCode.STUDENT_ERROR_NOT_FOUND));
+        return makeSuccessResponse(studentMapper.fromEntityToStudentDto(student), "Get student profile success");
     }
 }

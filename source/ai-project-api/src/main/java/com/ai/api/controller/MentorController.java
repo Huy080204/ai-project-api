@@ -161,6 +161,13 @@ public class MentorController extends ABasicController {
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorAutoCompleteDtoList), "Get auto complete mentors success");
     }
 
+    @GetMapping(value = "/profile", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ApiMessageDto<MentorDto> profile() {
+        Mentor mentor = mentorRepository.findByIdAndStatus(getCurrentUser(), AIConstant.STATUS_ACTIVE)
+                .orElseThrow(() -> new NotFoundException("[Mentor] Mentor not found", ErrorCode.MENTOR_ERROR_NOT_FOUND));
+        return makeSuccessResponse(mentorMapper.fromEntityToMentorDto(mentor), "Get mentor profile success");
+    }
+
     @Transactional
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_D')")
