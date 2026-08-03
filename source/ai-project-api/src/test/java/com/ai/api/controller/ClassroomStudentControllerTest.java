@@ -132,7 +132,7 @@ class ClassroomStudentControllerTest {
 
         when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
         when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Id(1L, 2L)).thenReturn(false);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
         when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
 
         // Act
@@ -232,7 +232,7 @@ class ClassroomStudentControllerTest {
         student.setId(2L);
         when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
         when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Id(1L, 2L)).thenReturn(true);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(true);
 
         // Act + Assert
         assertThatThrownBy(() -> classroomStudentController.register(form, bindingResult))
@@ -440,7 +440,7 @@ class ClassroomStudentControllerTest {
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Id(5L, 20L)).thenReturn(false);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
 
         // Act
         ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
@@ -469,7 +469,7 @@ class ClassroomStudentControllerTest {
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0922222222", "unknown@example.com")).thenReturn(Optional.of(existingStudent));
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Id(5L, 21L)).thenReturn(false);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 21L)).thenReturn(false);
 
         // Act
         ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
@@ -591,7 +591,7 @@ class ClassroomStudentControllerTest {
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0966666666", "already@example.com")).thenReturn(Optional.of(existingStudent));
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Id(5L, 22L)).thenReturn(true);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 22L)).thenReturn(true);
 
         // Act + Assert
         assertThatThrownBy(() -> classroomStudentController.registerFromRegistration(form, bindingResult))

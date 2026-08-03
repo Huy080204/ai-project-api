@@ -28,8 +28,7 @@ public class CreateSyllabusForm {
     @Schema(name = "name", requiredMode = Schema.RequiredMode.REQUIRED)
     private String name;
 
-    @NotBlank(message = "avatar cant not be null")
-    @Schema(name = "avatar", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(name = "avatar")
     private String avatar;
 
     @NotBlank(message = "description cant not be null")

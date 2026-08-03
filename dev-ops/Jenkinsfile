@@ -4,7 +4,7 @@ _BRANCH_NAME = env.BRANCH_NAME ?: env.GIT_BRANCH?.replaceFirst("origin/", "") ?:
 
 TIMEZONE = "GMT+7"
 APP_BOOT_TIME_SECOND = 30
-SLACK_CHANNEL_NAME = "GMQ6JQ1FT"
+SLACK_CHANNEL_NAME = "C0BML3ZENPK"
 
 TARTGET_FOLDER_DEPLOY="/opt/deploy/ai_project/api"
 JAR_NAME = "ai-project-api-0.0.1.jar"
@@ -26,11 +26,11 @@ node{
             notifyBuild("STARTED", SLACK_CHANNEL_NAME)
         }
 
-        stage ("Checkout source") {
+        stage("Checkout source") {
             checkout scm
         }
 
-        stage ("Unit test") {
+        stage("Unit test") {
 
         }
 
@@ -59,7 +59,7 @@ node{
 def buildDev(){
     if (_BRANCH_NAME.matches(TARTGET_BRANCH_DEPLOY)) {
 
-        stage ("Build source") {
+        stage("Build source") {
             withEnv( ["PATH+MAVEN=/usr/bin"] ) {
                 sh """
                     cp -r source/ai-project-api/* dev-ops/
@@ -136,7 +136,7 @@ def buildDev(){
 
         }
 
-        stage ("Deploy") {
+        stage("Deploy") {
             sleep(APP_BOOT_TIME_SECOND)
         }
 

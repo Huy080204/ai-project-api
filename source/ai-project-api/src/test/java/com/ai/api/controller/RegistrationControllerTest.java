@@ -124,14 +124,14 @@ class RegistrationControllerTest {
     }
 
     @Test
-    void shouldThrowNotFoundWhenCreateRegistrationClassroomNotActive() {
+    void shouldThrowNotFoundWhenCreateRegistrationClassroomDone() {
         // Arrange - classroom-not-active now shares CLASSROOM_ERROR_NOT_FOUND
         // (thrown as NotFoundException), not its own REGISTRATION_ERROR_CLASSROOM_NOT_ACTIVE
         CreateRegistrationForm form = createForm(5L, "john@example.com", "0123456789");
         BindingResult bindingResult = mock(BindingResult.class);
         Classroom classroom = new Classroom();
         classroom.setId(5L);
-        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
+        classroom.setState(AIConstant.CLASSROOM_STATE_DONE);
         when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
 
         // Act + Assert
@@ -139,6 +139,30 @@ class RegistrationControllerTest {
                 .isInstanceOfSatisfying(NotFoundException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
         verify(registrationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldCreateRegistrationSuccessfullyWhenClassroomIsPending() {
+        // Arrange
+        CreateRegistrationForm form = createForm(5L, "john@example.com", "0123456789");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = new Classroom();
+        classroom.setId(5L);
+        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
+        Registration registration = new Registration();
+
+        when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
+        when(registrationRepository.existsByClassroomIdAndEmail(5L, "john@example.com")).thenReturn(false);
+        when(registrationRepository.existsByClassroomIdAndPhone(5L, "0123456789")).thenReturn(false);
+        when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
+
+        // Act
+        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(registration.getClassroom()).isEqualTo(classroom);
+        verify(registrationRepository).save(registration);
     }
 
     @Test
@@ -182,7 +206,7 @@ class RegistrationControllerTest {
         Classroom classroom = activeClassroom(5L);
         when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
         when(registrationRepository.existsByClassroomIdAndEmail(5L, "john@example.com")).thenReturn(false);
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Account_Email(5L, "john@example.com")).thenReturn(true);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(5L, "john@example.com")).thenReturn(true);
 
         // Act + Assert
         assertThatThrownBy(() -> registrationController.create(form, bindingResult))
@@ -200,8 +224,8 @@ class RegistrationControllerTest {
         when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
         when(registrationRepository.existsByClassroomIdAndEmail(5L, "john@example.com")).thenReturn(false);
         when(registrationRepository.existsByClassroomIdAndPhone(5L, "0123456789")).thenReturn(false);
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Account_Email(5L, "john@example.com")).thenReturn(false);
-        when(classroomStudentRepository.existsByClassroom_IdAndStudent_Account_Phone(5L, "0123456789")).thenReturn(true);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(5L, "john@example.com")).thenReturn(false);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentAccountPhone(5L, "0123456789")).thenReturn(true);
 
         // Act + Assert
         assertThatThrownBy(() -> registrationController.create(form, bindingResult))

@@ -39,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -119,9 +120,12 @@ public class CourseController extends ABasicController {
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
+        List<String> filesToDelete = new ArrayList<>();
         if (StringUtils.isNoneBlank(course.getAvatar())) {
-            fileService.deleteFile(course.getAvatar());
+            filesToDelete.add(course.getAvatar());
         }
+        filesToDelete.addAll(syllabusRepository.findAvatarsByCourseId(id));
+        fileService.deleteFiles(filesToDelete);
         registrationRepository.deleteAllByClassroomCourseId(id);
         classroomRepository.deleteAllByCourseId(id);
         syllabusRepository.deleteAllByCourseId(id);

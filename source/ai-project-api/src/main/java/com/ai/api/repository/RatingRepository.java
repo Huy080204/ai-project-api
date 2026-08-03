@@ -13,4 +13,9 @@ public interface RatingRepository extends JpaRepository<Rating, Long>, JpaSpecif
     @Transactional
     @Query("DELETE FROM Rating r WHERE r.course.id = :courseId")
     void deleteAllByCourseId(@Param("courseId") Long courseId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Rating r WHERE r.student.id = :studentId")
+    void deleteAllByStudentId(@Param("studentId") Long studentId);
 }

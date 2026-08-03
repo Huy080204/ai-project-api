@@ -21,6 +21,7 @@ import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -33,6 +34,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.validation.BindingResult;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -279,7 +281,7 @@ class CourseControllerTest {
                 .isInstanceOfSatisfying(NotFoundException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.COURSE_ERROR_NOT_FOUND));
         verify(courseRepository, never()).deleteById(any());
-        verify(fileService, never()).deleteFile(any());
+        verify(fileService, never()).deleteFiles(any());
         verify(classroomRepository, never()).deleteAllByCourseId(any());
         verify(syllabusRepository, never()).deleteAllByCourseId(any());
         verify(registrationRepository, never()).deleteAllByClassroomCourseId(any());
@@ -287,19 +289,23 @@ class CourseControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void shouldDeleteAvatarFileWhenDeletingCourseWithNonBlankAvatar() {
         // Arrange
         Course course = new Course();
         course.setId(1L);
         course.setAvatar("/avatar/to-delete.png");
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
 
         // Act
         ApiMessageDto<Void> result = courseController.delete(1L);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(fileService).deleteFile("/avatar/to-delete.png");
+        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(fileService).deleteFiles(filesCaptor.capture());
+        assertThat(filesCaptor.getValue()).containsExactly("/avatar/to-delete.png");
         verify(courseRepository).deleteById(1L);
 
         InOrder inOrder = inOrder(registrationRepository, classroomRepository, syllabusRepository, courseRepository);
@@ -314,17 +320,43 @@ class CourseControllerTest {
     }
 
     @Test
-    void shouldNotDeleteFileWhenDeletingCourseWithBlankAvatar() {
-        // Arrange
+    @SuppressWarnings("unchecked")
+    void shouldCollectCourseAndSyllabusAvatarsWhenDeletingCourse() {
+        // Arrange - the course avatar plus every syllabus avatar under it are collected into
+        // one list and deleted via a single fileService.deleteFiles(...) batch call.
         Course course = new Course();
         course.setId(1L);
+        course.setAvatar("/avatar/course.png");
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusRepository.findAvatarsByCourseId(1L))
+                .thenReturn(Arrays.asList("/avatar/chapter1.png", "/avatar/chapter2.png"));
 
         // Act
         courseController.delete(1L);
 
         // Assert
-        verify(fileService, never()).deleteFile(any());
+        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(fileService).deleteFiles(filesCaptor.capture());
+        assertThat(filesCaptor.getValue()).containsExactly(
+                "/avatar/course.png", "/avatar/chapter1.png", "/avatar/chapter2.png");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNotDeleteFileWhenDeletingCourseWithBlankAvatar() {
+        // Arrange
+        Course course = new Course();
+        course.setId(1L);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
+
+        // Act
+        courseController.delete(1L);
+
+        // Assert
+        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(fileService).deleteFiles(filesCaptor.capture());
+        assertThat(filesCaptor.getValue()).isEmpty();
         verify(courseRepository).deleteById(1L);
     }
 

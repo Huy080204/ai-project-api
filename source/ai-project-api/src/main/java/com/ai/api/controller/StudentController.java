@@ -15,7 +15,9 @@ import com.ai.api.model.Group;
 import com.ai.api.model.Student;
 import com.ai.api.model.criteria.StudentCriteria;
 import com.ai.api.repository.AccountRepository;
+import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
+import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +61,10 @@ public class StudentController extends ABasicController {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private FileService fileService;
+    @Autowired
+    private ClassroomStudentRepository classroomStudentRepository;
+    @Autowired
+    private RatingRepository ratingRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -165,6 +171,9 @@ public class StudentController extends ABasicController {
         if (StringUtils.isNoneBlank(avatarPath)) {
             fileService.deleteFile(avatarPath);
         }
+
+        classroomStudentRepository.deleteAllByStudentId(id);
+        ratingRepository.deleteAllByStudentId(id);
 
         student.setStatus(AIConstant.STATUS_DELETE);
         studentRepository.save(student);

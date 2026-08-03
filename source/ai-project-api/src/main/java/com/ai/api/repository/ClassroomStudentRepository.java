@@ -9,11 +9,11 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface ClassroomStudentRepository extends JpaRepository<ClassroomStudent, Long>, JpaSpecificationExecutor<ClassroomStudent> {
-    boolean existsByClassroom_IdAndStudent_Id(Long classroomId, Long studentId);
+    boolean existsByClassroomIdAndStudentId(Long classroomId, Long studentId);
 
-    boolean existsByClassroom_IdAndStudent_Account_Email(Long classroomId, String email);
+    boolean existsByClassroomIdAndStudentAccountEmail(Long classroomId, String email);
 
-    boolean existsByClassroom_IdAndStudent_Account_Phone(Long classroomId, String phone);
+    boolean existsByClassroomIdAndStudentAccountPhone(Long classroomId, String phone);
 
     @Modifying
     @Transactional
@@ -24,4 +24,9 @@ public interface ClassroomStudentRepository extends JpaRepository<ClassroomStude
     @Transactional
     @Query("DELETE FROM ClassroomStudent cs WHERE cs.classroom.course.id = :courseId")
     void deleteAllByClassroomCourseId(@Param("courseId") Long courseId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM ClassroomStudent cs WHERE cs.student.id = :studentId")
+    void deleteAllByStudentId(@Param("studentId") Long studentId);
 }

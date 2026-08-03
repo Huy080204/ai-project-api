@@ -22,19 +22,17 @@ import java.util.List;
 public interface SyllabusMapper {
     @Mapping(source = "kind", target = "kind")
     @Mapping(source = "name", target = "name")
-    @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "avatar", target = "avatar", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_NULL)
     @Mapping(source = "description", target = "description")
     @Mapping(source = "ordering", target = "ordering")
-    @Mapping(source = "timeline", target = "timeline", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_NULL)
     @BeanMapping(ignoreByDefault = true)
     @Named("fromCreateSyllabusFormToEntity")
     Syllabus fromCreateSyllabusFormToEntity(CreateSyllabusForm createSyllabusForm);
 
     @Mapping(source = "name", target = "name")
-    @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "avatar", target = "avatar", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_NULL)
     @Mapping(source = "description", target = "description")
     @Mapping(source = "ordering", target = "ordering")
-    @Mapping(source = "timeline", target = "timeline", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_NULL)
     @BeanMapping(ignoreByDefault = true)
     void updateEntityFromForm(UpdateSyllabusForm updateSyllabusForm, @MappingTarget Syllabus syllabus);
 

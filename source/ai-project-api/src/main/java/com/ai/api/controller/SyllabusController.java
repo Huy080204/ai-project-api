@@ -62,12 +62,15 @@ public class SyllabusController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SYL_C')")
     public ApiMessageDto<Void> create(@Valid @RequestBody CreateSyllabusForm createSyllabusForm, BindingResult bindingResult) {
-        if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(createSyllabusForm.getKind()) && createSyllabusForm.getTimeline() == null) {
-            throw new BadRequestException("Timeline is required for chapter syllabus");
-        }
         Course course = courseRepository.findById(createSyllabusForm.getCourseId())
                 .orElseThrow(() -> new NotFoundException("Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
         Syllabus syllabus = syllabusMapper.fromCreateSyllabusFormToEntity(createSyllabusForm);
+        if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(createSyllabusForm.getKind())) {
+            if (createSyllabusForm.getTimeline() == null) {
+                throw new BadRequestException("Timeline is required for chapter");
+            }
+            syllabus.setTimeline(createSyllabusForm.getTimeline());
+        }
         syllabus.setCourse(course);
         syllabusRepository.save(syllabus);
         refreshCourseTotalTimeline(createSyllabusForm.getCourseId());
@@ -80,12 +83,14 @@ public class SyllabusController extends ABasicController {
     public ApiMessageDto<Void> update(@Valid @RequestBody UpdateSyllabusForm updateSyllabusForm, BindingResult bindingResult) {
         Syllabus syllabus = syllabusRepository.findById(updateSyllabusForm.getId())
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
-        if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind()) && updateSyllabusForm.getTimeline() == null) {
-            throw new BadRequestException("Timeline is required for chapter syllabus");
+        if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind())) {
+            if (updateSyllabusForm.getTimeline() == null) {
+                throw new BadRequestException("Timeline is required for chapter");
+            }
+            syllabus.setTimeline(updateSyllabusForm.getTimeline());
         }
-        String oldAvatar = syllabus.getAvatar();
-        if (StringUtils.isNoneBlank(oldAvatar) && !Objects.equals(updateSyllabusForm.getAvatar(), oldAvatar)) {
-            fileService.deleteFile(oldAvatar);
+        if (StringUtils.isNoneBlank(syllabus.getAvatar()) && !Objects.equals(updateSyllabusForm.getAvatar(), syllabus.getAvatar())) {
+            fileService.deleteFile(syllabus.getAvatar());
         }
         syllabusMapper.updateEntityFromForm(updateSyllabusForm, syllabus);
         syllabusRepository.save(syllabus);

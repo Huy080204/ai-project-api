@@ -15,7 +15,9 @@ import com.ai.api.model.Group;
 import com.ai.api.model.Student;
 import com.ai.api.model.criteria.StudentCriteria;
 import com.ai.api.repository.AccountRepository;
+import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
+import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
@@ -64,6 +66,12 @@ class StudentControllerTest {
 
     @Mock
     private GroupRepository groupRepository;
+
+    @Mock
+    private ClassroomStudentRepository classroomStudentRepository;
+
+    @Mock
+    private RatingRepository ratingRepository;
 
     @Mock
     private StudentMapper studentMapper;
@@ -323,6 +331,8 @@ class StudentControllerTest {
 
         // Assert
         verify(fileService).deleteFile("/avatar/to-delete.png");
+        verify(classroomStudentRepository).deleteAllByStudentId(1L);
+        verify(ratingRepository).deleteAllByStudentId(1L);
 
         // Arrange - blank/null avatar path
         Account accountWithoutAvatar = new Account();

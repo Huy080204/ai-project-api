@@ -140,17 +140,19 @@ class SyllabusControllerTest {
     @Test
     void shouldThrowBadRequestWithoutErrorCodeWhenCreateChapterSyllabusWithNullTimeline() {
         // Arrange - deliberate exception to the usual ErrorCode rule: message-only constructor,
-        // getCode() MUST be null for this one case. The kind/timeline check now runs BEFORE
-        // the course lookup (saves a query on the common invalid-input path), so neither
-        // courseRepository nor syllabusMapper is ever called here.
+        // getCode() MUST be null for this one case. The course lookup and mapper conversion now
+        // run BEFORE the chapter-timeline check.
         CreateSyllabusForm form = createForm(1L, AIConstant.SYLLABUS_KIND_CHAPTER, null);
         BindingResult bindingResult = mock(BindingResult.class);
+        Course course = course(1L);
+        Syllabus syllabus = new Syllabus();
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
 
         // Act + Assert
         assertThatThrownBy(() -> syllabusController.create(form, bindingResult))
                 .isInstanceOfSatisfying(BadRequestException.class,
                         ex -> assertThat(ex.getCode()).isNull());
-        verify(courseRepository, never()).findById(any());
         verify(syllabusRepository, never()).save(any());
         verify(courseRepository, never()).save(any());
     }
@@ -186,7 +188,7 @@ class SyllabusControllerTest {
     void shouldUpdateSyllabusSuccessfully() {
         // Arrange - kind is immutable and not present on UpdateSyllabusForm, so this is
         // a structural check (no kind field to assert), not a runtime kind assertion.
-        UpdateSyllabusForm form = updateForm(1L, "avatar.png", 20);
+        UpdateSyllabusForm form = updateForm(1L, "avatar.png", null);
         BindingResult bindingResult = mock(BindingResult.class);
         Course course = course(1L);
         Syllabus syllabus = new Syllabus();
@@ -244,8 +246,10 @@ class SyllabusControllerTest {
 
     @Test
     void shouldDeleteOldAvatarWhenUpdateAvatarChanges() {
-        // Arrange
-        UpdateSyllabusForm form = updateForm(1L, "/avatar/new.png", 20);
+        // Arrange - the Controller compares the entity's current avatar against the form's new
+        // avatar BEFORE calling the mapper, so no separate oldAvatar variable/mapper stubbing
+        // is needed here.
+        UpdateSyllabusForm form = updateForm(1L, "/avatar/new.png", null);
         BindingResult bindingResult = mock(BindingResult.class);
         Course course = course(1L);
         Syllabus syllabus = new Syllabus();
@@ -268,7 +272,7 @@ class SyllabusControllerTest {
     @Test
     void shouldNotDeleteOldAvatarWhenUpdateAvatarUnchanged() {
         // Arrange
-        UpdateSyllabusForm form = updateForm(1L, "/avatar/same.png", 20);
+        UpdateSyllabusForm form = updateForm(1L, "/avatar/same.png", null);
         BindingResult bindingResult = mock(BindingResult.class);
         Course course = course(1L);
         Syllabus syllabus = new Syllabus();

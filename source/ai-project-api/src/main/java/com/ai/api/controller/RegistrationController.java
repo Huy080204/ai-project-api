@@ -57,7 +57,7 @@ public class RegistrationController extends ABasicController {
     public ApiMessageDto<Void> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
         Classroom classroom = classroomRepository.findById(createRegistrationForm.getClassroomId())
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
-        if (!AIConstant.CLASSROOM_STATE_ACTIVE.equals(classroom.getState())) {
+        if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState()) && !AIConstant.CLASSROOM_STATE_ACTIVE.equals(classroom.getState())) {
             throw new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND);
         }
 
@@ -67,10 +67,10 @@ public class RegistrationController extends ABasicController {
         if (registrationRepository.existsByClassroomIdAndPhone(createRegistrationForm.getClassroomId(), createRegistrationForm.getPhone())) {
             throw new BadRequestException("Phone already registered for this classroom", ErrorCode.REGISTRATION_ERROR_PHONE_EXIST);
         }
-        if (classroomStudentRepository.existsByClassroom_IdAndStudent_Account_Email(createRegistrationForm.getClassroomId(), createRegistrationForm.getEmail())) {
+        if (classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(createRegistrationForm.getClassroomId(), createRegistrationForm.getEmail())) {
             throw new BadRequestException("Email already registered for this classroom", ErrorCode.REGISTRATION_ERROR_EMAIL_EXIST);
         }
-        if (classroomStudentRepository.existsByClassroom_IdAndStudent_Account_Phone(createRegistrationForm.getClassroomId(), createRegistrationForm.getPhone())) {
+        if (classroomStudentRepository.existsByClassroomIdAndStudentAccountPhone(createRegistrationForm.getClassroomId(), createRegistrationForm.getPhone())) {
             throw new BadRequestException("Phone already registered for this classroom", ErrorCode.REGISTRATION_ERROR_PHONE_EXIST);
         }
 

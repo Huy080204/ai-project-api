@@ -93,7 +93,7 @@ public class ClassroomStudentController extends ABasicController {
         if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState()) && !AIConstant.CLASSROOM_STATE_ACTIVE.equals(classroom.getState())) {
             throw new BadRequestException("Classroom is not joinable", ErrorCode.CLASSROOM_STUDENT_ERROR_CLASSROOM_NOT_JOINABLE);
         }
-        if (classroomStudentRepository.existsByClassroom_IdAndStudent_Id(classroom.getId(), student.getId())) {
+        if (classroomStudentRepository.existsByClassroomIdAndStudentId(classroom.getId(), student.getId())) {
             throw new BadRequestException("Student already registered to classroom", ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED);
         }
         ClassroomStudent classroomStudent = classroomStudentMapper.fromFormToEntity(registerClassroomStudentForm);
@@ -158,7 +158,7 @@ public class ClassroomStudentController extends ABasicController {
 
         Student student = resolveStudent(registration);
 
-        if (classroomStudentRepository.existsByClassroom_IdAndStudent_Id(registration.getClassroom().getId(), student.getId())) {
+        if (classroomStudentRepository.existsByClassroomIdAndStudentId(registration.getClassroom().getId(), student.getId())) {
             throw new BadRequestException("Student already registered to classroom", ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED);
         }
 
