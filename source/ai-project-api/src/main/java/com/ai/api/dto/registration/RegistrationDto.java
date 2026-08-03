@@ -2,6 +2,7 @@ package com.ai.api.dto.registration;
 
 import com.ai.api.dto.ABasicAdminDto;
 import com.ai.api.dto.classroom.ClassroomDto;
+import com.ai.api.dto.student.StudentDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,6 +13,8 @@ import lombok.Setter;
 public class RegistrationDto extends ABasicAdminDto {
     @Schema(name = "classroom")
     private ClassroomDto classroom;
+    @Schema(name = "student")
+    private StudentDto student;
     @Schema(name = "fullName")
     private String fullName;
     @Schema(name = "email")

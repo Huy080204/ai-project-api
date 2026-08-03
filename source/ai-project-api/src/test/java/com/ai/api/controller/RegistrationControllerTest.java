@@ -4,17 +4,28 @@ import com.ai.api.constant.AIConstant;
 import com.ai.api.dto.ApiMessageDto;
 import com.ai.api.dto.ErrorCode;
 import com.ai.api.dto.ResponseListDto;
+import com.ai.api.dto.classroom.ClassroomDto;
+import com.ai.api.dto.course.CourseDto;
 import com.ai.api.dto.registration.RegistrationDto;
+import com.ai.api.dto.student.StudentDto;
+import com.ai.api.dto.syllabus.SyllabusDto;
 import com.ai.api.exception.BadRequestException;
 import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.registration.CreateRegistrationForm;
 import com.ai.api.mapper.RegistrationMapper;
+import com.ai.api.mapper.StudentMapper;
+import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Classroom;
+import com.ai.api.model.Course;
 import com.ai.api.model.Registration;
+import com.ai.api.model.Student;
+import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.RegistrationCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.RegistrationRepository;
+import com.ai.api.repository.StudentRepository;
+import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +72,18 @@ class RegistrationControllerTest {
 
     @Mock
     private RegistrationMapper registrationMapper;
+
+    @Mock
+    private StudentRepository studentRepository;
+
+    @Mock
+    private StudentMapper studentMapper;
+
+    @Mock
+    private SyllabusRepository syllabusRepository;
+
+    @Mock
+    private SyllabusMapper syllabusMapper;
 
     @Mock
     private UserServiceImpl userService;
@@ -274,6 +297,114 @@ class RegistrationControllerTest {
         assertThatThrownBy(() -> registrationController.get(99L))
                 .isInstanceOfSatisfying(NotFoundException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.REGISTRATION_ERROR_NOT_FOUND));
+    }
+
+    @Test
+    void shouldReturnStudentDtoWhenStudentFoundByPhoneOrEmail() {
+        // Arrange
+        Course course = new Course();
+        course.setId(1L);
+        Classroom classroom = new Classroom();
+        classroom.setCourse(course);
+
+        Registration registration = new Registration();
+        registration.setEmail("john@example.com");
+        registration.setPhone("0123456789");
+        registration.setClassroom(classroom);
+
+        RegistrationDto registrationDto = new RegistrationDto();
+        registrationDto.setClassroom(new ClassroomDto());
+        registrationDto.getClassroom().setCourse(new CourseDto());
+
+        Student student = new Student();
+        StudentDto studentDto = new StudentDto();
+
+        when(registrationRepository.findById(10L)).thenReturn(Optional.of(registration));
+        when(registrationMapper.fromEntityToRegistrationDto(registration)).thenReturn(registrationDto);
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0123456789", "john@example.com"))
+                .thenReturn(Optional.of(student));
+        when(studentMapper.fromEntityToStudentDto(student)).thenReturn(studentDto);
+        when(syllabusRepository.findByCourseIdOrderByOrderingAsc(1L)).thenReturn(List.of());
+
+        // Act
+        ApiMessageDto<RegistrationDto> result = registrationController.get(10L);
+
+        // Assert
+        assertThat(result.getData().getStudent()).isEqualTo(studentDto);
+    }
+
+    @Test
+    void shouldReturnNullStudentWhenNoStudentMatchesPhoneOrEmail() {
+        // Arrange
+        Course course = new Course();
+        course.setId(1L);
+        Classroom classroom = new Classroom();
+        classroom.setCourse(course);
+
+        Registration registration = new Registration();
+        registration.setEmail("john@example.com");
+        registration.setPhone("0123456789");
+        registration.setClassroom(classroom);
+
+        RegistrationDto registrationDto = new RegistrationDto();
+        registrationDto.setClassroom(new ClassroomDto());
+        registrationDto.getClassroom().setCourse(new CourseDto());
+
+        when(registrationRepository.findById(10L)).thenReturn(Optional.of(registration));
+        when(registrationMapper.fromEntityToRegistrationDto(registration)).thenReturn(registrationDto);
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0123456789", "john@example.com"))
+                .thenReturn(Optional.empty());
+        when(syllabusRepository.findByCourseIdOrderByOrderingAsc(1L)).thenReturn(List.of());
+
+        // Act
+        ApiMessageDto<RegistrationDto> result = registrationController.get(10L);
+
+        // Assert
+        assertThat(result.getData().getStudent()).isNull();
+    }
+
+    @Test
+    void shouldIncludeSyllabusesInMockedOrderWhenGettingRegistration() {
+        // Arrange
+        Course course = new Course();
+        course.setId(20L);
+
+        Classroom classroom = activeClassroom(5L);
+        classroom.setCourse(course);
+
+        Registration registration = new Registration();
+        registration.setClassroom(classroom);
+
+        CourseDto courseDto = new CourseDto();
+
+        ClassroomDto classroomDto = new ClassroomDto();
+        classroomDto.setCourse(courseDto);
+
+        RegistrationDto registrationDto = new RegistrationDto();
+        registrationDto.setClassroom(classroomDto);
+
+        Syllabus syllabus1 = new Syllabus();
+        syllabus1.setId(1L);
+        Syllabus syllabus2 = new Syllabus();
+        syllabus2.setId(2L);
+        List<Syllabus> syllabuses = Arrays.asList(syllabus1, syllabus2);
+
+        SyllabusDto syllabusDto1 = new SyllabusDto();
+        SyllabusDto syllabusDto2 = new SyllabusDto();
+
+        when(registrationRepository.findById(10L)).thenReturn(Optional.of(registration));
+        when(registrationMapper.fromEntityToRegistrationDto(registration)).thenReturn(registrationDto);
+        when(syllabusRepository.findByCourseIdOrderByOrderingAsc(20L)).thenReturn(syllabuses);
+        when(syllabusMapper.fromEntityToSyllabusShortDtoList(syllabuses))
+                .thenReturn(Arrays.asList(syllabusDto1, syllabusDto2));
+
+        // Act
+        ApiMessageDto<RegistrationDto> result = registrationController.get(10L);
+
+        // Assert
+        assertThat(result.getData().getClassroom().getCourse().getSyllabuses())
+                .hasSize(2)
+                .containsExactly(syllabusDto1, syllabusDto2);
     }
 
     // ------------------------------------------------------------------ delete
