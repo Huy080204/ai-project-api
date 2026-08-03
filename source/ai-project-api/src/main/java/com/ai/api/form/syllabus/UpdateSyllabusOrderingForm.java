@@ -20,4 +20,8 @@ public class UpdateSyllabusOrderingForm {
     @NotNull(message = "ordering cant not be null")
     @Schema(name = "ordering", requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer ordering;
+
+    @JsonDeserialize(using = StringToLongDeserializer.class)
+    @Schema(name = "chapterId")
+    private Long chapterId;
 }

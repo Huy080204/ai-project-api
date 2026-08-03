@@ -22,6 +22,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,11 +36,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @RestController
@@ -65,13 +70,21 @@ public class SyllabusController extends ABasicController {
         Course course = courseRepository.findById(createSyllabusForm.getCourseId())
                 .orElseThrow(() -> new NotFoundException("Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
         Syllabus syllabus = syllabusMapper.fromCreateSyllabusFormToEntity(createSyllabusForm);
-        if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(createSyllabusForm.getKind())) {
-            if (createSyllabusForm.getTimeline() == null) {
-                throw new BadRequestException("Timeline is required for chapter");
-            }
-            syllabus.setTimeline(createSyllabusForm.getTimeline());
-        }
         syllabus.setCourse(course);
+
+        if (AIConstant.SYLLABUS_KIND_LESSON.equals(createSyllabusForm.getKind())) {
+            if (createSyllabusForm.getTimeline() == null) {
+                throw new BadRequestException("Timeline is required for lesson");
+            }
+            Syllabus chapter = syllabusRepository.findTopByCourseIdAndKindOrderByOrderingDesc(
+                            createSyllabusForm.getCourseId(), AIConstant.SYLLABUS_KIND_CHAPTER)
+                    .orElseThrow(() -> new BadRequestException(
+                            "Course must have at least one chapter before adding a lesson"));
+            syllabus.setTimeline(createSyllabusForm.getTimeline());
+            chapter.setTimeline(chapter.getTimeline() + syllabus.getTimeline());
+            syllabusRepository.save(chapter);
+        }
+
         syllabusRepository.save(syllabus);
         refreshCourseTotalTimeline(createSyllabusForm.getCourseId());
         return makeSuccessResponse("Create syllabus success");
@@ -83,13 +96,23 @@ public class SyllabusController extends ABasicController {
     public ApiMessageDto<Void> update(@Valid @RequestBody UpdateSyllabusForm updateSyllabusForm, BindingResult bindingResult) {
         Syllabus syllabus = syllabusRepository.findById(updateSyllabusForm.getId())
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
-        if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind())) {
+
+        if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
             if (updateSyllabusForm.getTimeline() == null) {
-                throw new BadRequestException("Timeline is required for chapter");
+                throw new BadRequestException("Timeline is required for lesson");
             }
+            if (updateSyllabusForm.getChapterId() == null) {
+                throw new BadRequestException("chapterId is required for lesson");
+            }
+            Syllabus chapter = resolveChapter(updateSyllabusForm.getChapterId(), syllabus.getCourse().getId());
+            Integer delta = updateSyllabusForm.getTimeline() - syllabus.getTimeline();
             syllabus.setTimeline(updateSyllabusForm.getTimeline());
+            chapter.setTimeline(chapter.getTimeline() + delta);
+            syllabusRepository.save(chapter);
         }
-        if (StringUtils.isNoneBlank(syllabus.getAvatar()) && !Objects.equals(updateSyllabusForm.getAvatar(), syllabus.getAvatar())) {
+
+        if (StringUtils.isNoneBlank(syllabus.getAvatar())
+                && !Objects.equals(updateSyllabusForm.getAvatar(), syllabus.getAvatar())) {
             fileService.deleteFile(syllabus.getAvatar());
         }
         syllabusMapper.updateEntityFromForm(updateSyllabusForm, syllabus);
@@ -108,7 +131,7 @@ public class SyllabusController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SYL_L')")
-    public ApiMessageDto<ResponseListDto<List<SyllabusDto>>> list(SyllabusCriteria criteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<SyllabusDto>>> list(SyllabusCriteria criteria, @PageableDefault(sort = "ordering", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<Syllabus> syllabuses = syllabusRepository.findAll(criteria.getSpecification(), pageable);
         return makeSuccessResponse(makeResponseListDto(syllabuses, syllabusMapper::fromEntityToSyllabusDtoList), "List syllabus success");
     }
@@ -116,13 +139,24 @@ public class SyllabusController extends ABasicController {
     @Transactional
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SYL_D')")
-    public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
+    public ApiMessageDto<Void> delete(@PathVariable("id") Long id,
+                                      @RequestParam(value = "chapterId", required = false) Long chapterId) {
         Syllabus syllabus = syllabusRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
+        Long courseId = syllabus.getCourse().getId();
+
+        if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
+            if (chapterId == null) {
+                throw new BadRequestException("chapterId is required for lesson");
+            }
+            Syllabus chapter = resolveChapter(chapterId, courseId);
+            chapter.setTimeline(chapter.getTimeline() - syllabus.getTimeline());
+            syllabusRepository.save(chapter);
+        }
+
         if (StringUtils.isNoneBlank(syllabus.getAvatar())) {
             fileService.deleteFile(syllabus.getAvatar());
         }
-        Long courseId = syllabus.getCourse().getId();
         syllabusRepository.deleteById(id);
         refreshCourseTotalTimeline(courseId);
         return makeSuccessResponse("Delete syllabus success");
@@ -133,18 +167,39 @@ public class SyllabusController extends ABasicController {
     @PreAuthorize("hasRole('SYL_U')")
     public ApiMessageDto<Void> updateOrdering(@Valid @RequestBody List<UpdateSyllabusOrderingForm> updateSyllabusOrderingForms) {
         List<Syllabus> syllabuses = new ArrayList<>();
+        Map<Long, Integer> chapterTimelineSums = new HashMap<>();
+        Long courseId = null;
+
         for (UpdateSyllabusOrderingForm form : updateSyllabusOrderingForms) {
             Syllabus syllabus = syllabusRepository.findById(form.getId())
                     .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
             syllabus.setOrdering(form.getOrdering());
+            courseId = syllabus.getCourse().getId();
+
+            if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
+                if (form.getChapterId() == null) {
+                    throw new BadRequestException("chapterId is required for lesson");
+                }
+                Integer timeline = syllabus.getTimeline() == null ? 0 : syllabus.getTimeline();
+                chapterTimelineSums.merge(form.getChapterId(), timeline, Integer::sum);
+            }
             syllabuses.add(syllabus);
         }
         syllabusRepository.saveAll(syllabuses);
+
+        for (Map.Entry<Long, Integer> entry : chapterTimelineSums.entrySet()) {
+            Syllabus chapter = resolveChapter(entry.getKey(), courseId);
+            chapter.setTimeline(entry.getValue());
+            syllabusRepository.save(chapter);
+        }
+        if (courseId != null) {
+            refreshCourseTotalTimeline(courseId);
+        }
         return makeSuccessResponse("Update syllabus ordering success");
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<SyllabusDto>>> publicList(SyllabusCriteria criteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<SyllabusDto>>> publicList(SyllabusCriteria criteria, @PageableDefault(sort = "ordering", direction = Sort.Direction.ASC) Pageable pageable) {
         if (criteria.getCourseId() == null) {
             throw new BadRequestException("courseId is required");
         }
@@ -159,5 +214,15 @@ public class SyllabusController extends ABasicController {
             course.setTotalTimeline(sum);
             courseRepository.save(course);
         });
+    }
+
+    private Syllabus resolveChapter(Long chapterId, Long courseId) {
+        Syllabus chapter = syllabusRepository.findById(chapterId)
+                .orElseThrow(() -> new BadRequestException("chapterId does not reference an existing Chapter"));
+        if (!AIConstant.SYLLABUS_KIND_CHAPTER.equals(chapter.getKind())
+                || chapter.getCourse() == null || !Objects.equals(chapter.getCourse().getId(), courseId)) {
+            throw new BadRequestException("chapterId must reference a Chapter in the same course");
+        }
+        return chapter;
     }
 }

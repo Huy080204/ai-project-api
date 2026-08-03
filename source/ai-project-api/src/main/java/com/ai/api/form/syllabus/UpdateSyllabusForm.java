@@ -30,11 +30,11 @@ public class UpdateSyllabusForm {
     @Schema(name = "description", requiredMode = Schema.RequiredMode.REQUIRED)
     private String description;
 
-    @NotNull(message = "ordering cant not be null")
-    @Schema(name = "ordering", requiredMode = Schema.RequiredMode.REQUIRED)
-    private Integer ordering;
-
     @Min(value = 0, message = "timeline must be greater than or equal to 0")
     @Schema(name = "timeline")
     private Integer timeline;
+
+    @JsonDeserialize(using = StringToLongDeserializer.class)
+    @Schema(name = "chapterId")
+    private Long chapterId;
 }

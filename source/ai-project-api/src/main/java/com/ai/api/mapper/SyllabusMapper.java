@@ -32,7 +32,6 @@ public interface SyllabusMapper {
     @Mapping(source = "name", target = "name")
     @Mapping(source = "avatar", target = "avatar", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_NULL)
     @Mapping(source = "description", target = "description")
-    @Mapping(source = "ordering", target = "ordering")
     @BeanMapping(ignoreByDefault = true)
     void updateEntityFromForm(UpdateSyllabusForm updateSyllabusForm, @MappingTarget Syllabus syllabus);
 
