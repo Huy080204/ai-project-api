@@ -34,5 +34,5 @@ public class Syllabus extends Auditable<String> {
 
     private Integer ordering;
 
-    private Integer timeline;
+    private Integer timeline = 0;
 }

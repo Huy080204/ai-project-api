@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SyllabusRepository extends JpaRepository<Syllabus, Long>, JpaSpecificationExecutor<Syllabus> {
     @Query("SELECT COALESCE(SUM(s.timeline), 0) FROM Syllabus s WHERE s.course.id = :courseId AND s.kind = :kind")
@@ -23,4 +24,6 @@ public interface SyllabusRepository extends JpaRepository<Syllabus, Long>, JpaSp
     void deleteAllByCourseId(@Param("courseId") Long courseId);
 
     List<Syllabus> findByCourseIdOrderByOrderingAsc(Long courseId);
+
+    Optional<Syllabus> findTopByCourseIdAndKindOrderByOrderingDesc(Long courseId, Integer kind);
 }
