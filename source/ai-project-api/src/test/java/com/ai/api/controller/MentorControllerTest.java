@@ -2,10 +2,13 @@ package com.ai.api.controller;
 
 import com.ai.api.constant.AIConstant;
 import com.ai.api.dto.ApiMessageDto;
+import com.ai.api.dto.ErrorCode;
 import com.ai.api.dto.ResponseListDto;
 import com.ai.api.dto.mentor.MentorDto;
 import com.ai.api.exception.BadRequestException;
+import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.mentor.CreateMentorForm;
+import com.ai.api.jwt.BaseJwt;
 import com.ai.api.mapper.MentorMapper;
 import com.ai.api.mapper.MentorMapperImpl;
 import com.ai.api.mapper.AccountMapperImpl;
@@ -16,6 +19,7 @@ import com.ai.api.model.criteria.MentorCriteria;
 import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.MentorRepository;
+import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -69,8 +73,17 @@ class MentorControllerTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private UserServiceImpl userService;
+
     @InjectMocks
     private MentorController mentorController;
+
+    private BaseJwt jwtFor(long accountId) {
+        BaseJwt jwt = new BaseJwt();
+        jwt.setAccountId(accountId);
+        return jwt;
+    }
 
     private CreateMentorForm createForm(String username, String email, String phone,
                                          String password, String fullName, Long groupId,
@@ -255,5 +268,42 @@ class MentorControllerTest {
         assertThat(mentorDto.getStatus()).isNull();
         assertThat(mentorDto.getCreatedDate()).isNull();
         assertThat(mentorDto.getModifiedDate()).isNull();
+    }
+
+    // ------------------------------------------------------------------ (f)/(g) profile (FR-009)
+
+    @Test
+    void shouldReturnCurrentMentorProfileWhenFound() {
+        // Arrange
+        when(userService.getAddInfoFromToken()).thenReturn(jwtFor(1L));
+
+        Mentor mentor = new Mentor();
+        mentor.setId(1L);
+
+        MentorDto mentorDto = new MentorDto();
+
+        when(mentorRepository.findByIdAndStatus(1L, AIConstant.STATUS_ACTIVE)).thenReturn(Optional.of(mentor));
+        when(mentorMapper.fromEntityToMentorDto(mentor)).thenReturn(mentorDto);
+
+        // Act
+        ApiMessageDto<MentorDto> result = mentorController.profile();
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(result.getData()).isEqualTo(mentorDto);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenProfileMentorNotFound() {
+        // Arrange
+        when(userService.getAddInfoFromToken()).thenReturn(jwtFor(1L));
+
+        when(mentorRepository.findByIdAndStatus(1L, AIConstant.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        // Act + Assert
+        assertThatThrownBy(() -> mentorController.profile())
+                .isInstanceOf(NotFoundException.class)
+                .extracting("code")
+                .isEqualTo(ErrorCode.MENTOR_ERROR_NOT_FOUND);
     }
 }

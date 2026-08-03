@@ -111,17 +111,17 @@ public class StudentController extends ABasicController {
 
         Account account = student.getAccount();
 
-        if (!form.getEmail().equals(account.getEmail())
+        if (!Objects.equals(form.getEmail(), account.getEmail())
                 && accountRepository.existsByEmailAndStatusNot(form.getEmail(), AIConstant.STATUS_DELETE)) {
             throw new BadRequestException("[Account] Email existed", ErrorCode.ACCOUNT_ERROR_EMAIL_EXISTED);
         }
 
-        if (!form.getPhone().equals(account.getPhone())
+        if (!Objects.equals(form.getPhone(), account.getPhone())
                 && accountRepository.existsByPhoneAndStatusNot(form.getPhone(), AIConstant.STATUS_DELETE)) {
             throw new BadRequestException("[Account] Phone existed", ErrorCode.ACCOUNT_ERROR_PHONE_EXISTED);
         }
 
-        if (!form.getUsername().equals(account.getUsername())
+        if (!Objects.equals(form.getUsername(), account.getUsername())
                 && accountRepository.existsByUsername(form.getUsername())) {
             throw new BadRequestException("[Account] Username exist", ErrorCode.ACCOUNT_ERROR_USERNAME_EXIST);
         }

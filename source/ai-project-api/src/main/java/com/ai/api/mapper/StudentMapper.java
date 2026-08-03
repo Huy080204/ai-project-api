@@ -35,9 +35,8 @@ public interface StudentMapper {
     @Mapping(source = "id", target = "id")
     @Mapping(source = "status", target = "status")
     @Mapping(source = "createdDate", target = "createdDate")
-    @Mapping(source = "modifiedDate", target = "modifiedDate")
     @Mapping(source = "address", target = "address")
-    @Mapping(source = "account", target = "account", qualifiedByName = "fromAccountToDto")
+    @Mapping(source = "account", target = "account", qualifiedByName = "fromAccountToDtoShort")
     @BeanMapping(ignoreByDefault = true)
     @Named("fromEntityToStudentDto")
     StudentDto fromEntityToStudentDto(Student student);

@@ -53,4 +53,18 @@ public interface SyllabusMapper {
     @IterableMapping(elementTargetType = SyllabusDto.class, qualifiedByName = "fromEntityToSyllabusDto")
     @Named("fromEntityToSyllabusDtoList")
     List<SyllabusDto> fromEntityToSyllabusDtoList(List<Syllabus> syllabuses);
+
+    @Mapping(source = "id", target = "id")
+    @Mapping(source = "kind", target = "kind")
+    @Mapping(source = "name", target = "name")
+    @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "ordering", target = "ordering")
+    @Mapping(source = "timeline", target = "timeline")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToSyllabusShortDto")
+    SyllabusDto fromEntityToSyllabusShortDto(Syllabus syllabus);
+
+    @IterableMapping(elementTargetType = SyllabusDto.class, qualifiedByName = "fromEntityToSyllabusShortDto")
+    @Named("fromEntityToSyllabusShortDtoList")
+    List<SyllabusDto> fromEntityToSyllabusShortDtoList(List<Syllabus> syllabuses);
 }
