@@ -21,4 +21,6 @@ public interface SyllabusRepository extends JpaRepository<Syllabus, Long>, JpaSp
     @Transactional
     @Query("DELETE FROM Syllabus s WHERE s.course.id = :courseId")
     void deleteAllByCourseId(@Param("courseId") Long courseId);
+
+    List<Syllabus> findByCourseIdOrderByOrderingAsc(Long courseId);
 }

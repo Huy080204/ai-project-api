@@ -9,12 +9,18 @@ import com.ai.api.exception.BadRequestException;
 import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.registration.CreateRegistrationForm;
 import com.ai.api.mapper.RegistrationMapper;
+import com.ai.api.mapper.StudentMapper;
+import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Classroom;
 import com.ai.api.model.Registration;
+import com.ai.api.model.Student;
+import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.RegistrationCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.RegistrationRepository;
+import com.ai.api.repository.StudentRepository;
+import com.ai.api.repository.SyllabusRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -51,6 +57,18 @@ public class RegistrationController extends ABasicController {
 
     @Autowired
     private RegistrationMapper registrationMapper;
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentMapper studentMapper;
+
+    @Autowired
+    private SyllabusRepository syllabusRepository;
+
+    @Autowired
+    private SyllabusMapper syllabusMapper;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -89,16 +107,24 @@ public class RegistrationController extends ABasicController {
 
     @GetMapping(value = "/get/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('REG_V')")
-    public ApiMessageDto<RegistrationDto> get(@PathVariable("id") Long id) {
+    public ApiMessageDto<RegistrationDto> get(@PathVariable Long id) {
         Registration registration = registrationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Registration not found", ErrorCode.REGISTRATION_ERROR_NOT_FOUND));
-        return makeSuccessResponse(registrationMapper.fromEntityToRegistrationDto(registration), "Get registration success");
+        RegistrationDto registrationDto = registrationMapper.fromEntityToRegistrationDto(registration);
+
+        Student student = studentRepository.findFirstByAccountPhoneOrAccountEmail(registration.getPhone(), registration.getEmail())
+                .orElse(null);
+        registrationDto.setStudent(student != null ? studentMapper.fromEntityToStudentDto(student) : null);
+
+        List<Syllabus> syllabuses = syllabusRepository.findByCourseIdOrderByOrderingAsc(registration.getClassroom().getCourse().getId());
+        registrationDto.getClassroom().getCourse().setSyllabuses(syllabusMapper.fromEntityToSyllabusShortDtoList(syllabuses));
+        return makeSuccessResponse(registrationDto, "Get registration success");
     }
 
     @Transactional
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('REG_D')")
-    public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
+    public ApiMessageDto<Void> delete(@PathVariable Long id) {
         registrationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Registration not found", ErrorCode.REGISTRATION_ERROR_NOT_FOUND));
         registrationRepository.deleteById(id);

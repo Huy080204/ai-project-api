@@ -2,11 +2,14 @@ package com.ai.api.controller;
 
 import com.ai.api.constant.AIConstant;
 import com.ai.api.dto.ApiMessageDto;
+import com.ai.api.dto.ErrorCode;
 import com.ai.api.dto.ResponseListDto;
 import com.ai.api.dto.student.StudentDto;
 import com.ai.api.exception.BadRequestException;
+import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.student.CreateStudentForm;
 import com.ai.api.form.student.UpdateStudentForm;
+import com.ai.api.jwt.BaseJwt;
 import com.ai.api.mapper.StudentMapper;
 import com.ai.api.mapper.StudentMapperImpl;
 import com.ai.api.mapper.AccountMapperImpl;
@@ -20,6 +23,7 @@ import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.service.FileService;
+import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -81,6 +85,9 @@ class StudentControllerTest {
 
     @Mock
     private FileService fileService;
+
+    @Mock
+    private UserServiceImpl userService;
 
     @InjectMocks
     private StudentController studentController;
@@ -349,5 +356,205 @@ class StudentControllerTest {
 
         // Assert - still only the one deleteFile call from the non-blank case above
         verify(fileService, never()).deleteFile(null);
+    }
+
+    // --------------------------------------------------- (h) update sets new unique username (FR-003)
+
+    @Test
+    void shouldSetNewUsernameWhenUpdateWithNewUniqueUsername() {
+        // Arrange
+        Account account = new Account();
+        account.setUsername("oldUsername");
+        account.setEmail("student1@example.com");
+        account.setPhone("0912345678");
+
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        UpdateStudentForm form = new UpdateStudentForm();
+        form.setId(1L);
+        form.setEmail("student1@example.com");
+        form.setPhone("0912345678");
+        form.setUsername("newUsername");
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(accountRepository.existsByUsername("newUsername")).thenReturn(false);
+
+        // Act
+        studentController.update(form, mock(BindingResult.class));
+
+        // Assert
+        assertThat(account.getUsername()).isEqualTo("newUsername");
+        verify(accountRepository).save(account);
+    }
+
+    // ------------------------------------------- (i) update with colliding username throws (FR-003)
+
+    @Test
+    void shouldThrowBadRequestWhenUpdateWithCollidingUsername() {
+        // Arrange
+        Account account = new Account();
+        account.setUsername("oldUsername");
+        account.setEmail("student1@example.com");
+        account.setPhone("0912345678");
+
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        UpdateStudentForm form = new UpdateStudentForm();
+        form.setId(1L);
+        form.setEmail("student1@example.com");
+        form.setPhone("0912345678");
+        form.setUsername("takenUsername");
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(accountRepository.existsByUsername("takenUsername")).thenReturn(true);
+
+        // Act + Assert
+        assertThatThrownBy(() -> studentController.update(form, mock(BindingResult.class)))
+                .isInstanceOfSatisfying(BadRequestException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.ACCOUNT_ERROR_USERNAME_EXIST));
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
+    }
+
+    // -------------------------------------------- (j) update with unchanged username skips check (FR-009)
+
+    @Test
+    void shouldNotCallExistsByUsernameWhenUpdateWithUsernameEqualToCurrentValue() {
+        // Arrange
+        Account account = new Account();
+        account.setUsername("sameUsername");
+        account.setEmail("student1@example.com");
+        account.setPhone("0912345678");
+
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        UpdateStudentForm form = new UpdateStudentForm();
+        form.setId(1L);
+        form.setEmail("student1@example.com");
+        form.setPhone("0912345678");
+        form.setUsername("sameUsername");
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+
+        // Act
+        studentController.update(form, mock(BindingResult.class));
+
+        // Assert
+        verify(accountRepository, never()).existsByUsername(any());
+    }
+
+    // ---------------------------------------------- (k) update with non-blank password encodes it (FR-003)
+
+    @Test
+    void shouldEncodeAndSetPasswordWhenUpdateWithNonBlankPassword() {
+        // Arrange
+        Account account = new Account();
+        account.setUsername("sameUsername");
+        account.setEmail("student1@example.com");
+        account.setPhone("0912345678");
+        account.setPassword("oldEncodedPassword");
+
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        UpdateStudentForm form = new UpdateStudentForm();
+        form.setId(1L);
+        form.setEmail("student1@example.com");
+        form.setPhone("0912345678");
+        form.setUsername("sameUsername");
+        form.setPassword("NewPassword1!");
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(passwordEncoder.encode("NewPassword1!")).thenReturn("newEncodedPassword");
+
+        // Act
+        studentController.update(form, mock(BindingResult.class));
+
+        // Assert
+        verify(passwordEncoder).encode("NewPassword1!");
+        assertThat(account.getPassword()).isEqualTo("newEncodedPassword");
+    }
+
+    // ---------------------------------------- (l) update with blank/absent password leaves it (FR-003)
+
+    @Test
+    void shouldLeavePasswordUntouchedWhenUpdateWithBlankPassword() {
+        // Arrange
+        Account account = new Account();
+        account.setUsername("sameUsername");
+        account.setEmail("student1@example.com");
+        account.setPhone("0912345678");
+        account.setPassword("oldEncodedPassword");
+
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        UpdateStudentForm form = new UpdateStudentForm();
+        form.setId(1L);
+        form.setEmail("student1@example.com");
+        form.setPhone("0912345678");
+        form.setUsername("sameUsername");
+        form.setPassword(null);
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+
+        // Act
+        studentController.update(form, mock(BindingResult.class));
+
+        // Assert
+        verify(passwordEncoder, never()).encode(any());
+        assertThat(account.getPassword()).isEqualTo("oldEncodedPassword");
+    }
+
+    // ---------------------------------------------- (m) profile() returns current user's StudentDto
+
+    @Test
+    void shouldReturnCurrentUserStudentDtoWhenProfileResolves() {
+        // Arrange
+        BaseJwt jwt = new BaseJwt();
+        jwt.setAccountId(5L);
+        when(userService.getAddInfoFromToken()).thenReturn(jwt);
+
+        Account account = new Account();
+        account.setId(5L);
+
+        Student student = new Student();
+        student.setId(5L);
+        student.setAccount(account);
+
+        StudentDto studentDto = new StudentDto();
+
+        when(studentRepository.findByIdAndStatus(5L, AIConstant.STATUS_ACTIVE)).thenReturn(Optional.of(student));
+        when(studentMapper.fromEntityToStudentDto(student)).thenReturn(studentDto);
+
+        // Act
+        ApiMessageDto<StudentDto> result = studentController.profile();
+
+        // Assert
+        assertThat(result.getData()).isEqualTo(studentDto);
+    }
+
+    // ------------------------------------------- (n) profile() throws NotFoundException when missing
+
+    @Test
+    void shouldThrowNotFoundWhenProfileDoesNotResolve() {
+        // Arrange
+        BaseJwt jwt = new BaseJwt();
+        jwt.setAccountId(5L);
+        when(userService.getAddInfoFromToken()).thenReturn(jwt);
+
+        when(studentRepository.findByIdAndStatus(5L, AIConstant.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        // Act + Assert
+        assertThatThrownBy(() -> studentController.profile())
+                .isInstanceOf(NotFoundException.class);
     }
 }

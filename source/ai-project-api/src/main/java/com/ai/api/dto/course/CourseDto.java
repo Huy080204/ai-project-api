@@ -1,11 +1,13 @@
 package com.ai.api.dto.course;
 
 import com.ai.api.dto.ABasicAdminDto;
+import com.ai.api.dto.syllabus.SyllabusDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -21,4 +23,6 @@ public class CourseDto extends ABasicAdminDto {
     private String shortDescription;
     @Schema(name = "totalTimeline")
     private Integer totalTimeline;
+    @Schema(name = "syllabuses")
+    private List<SyllabusDto> syllabuses;
 }
