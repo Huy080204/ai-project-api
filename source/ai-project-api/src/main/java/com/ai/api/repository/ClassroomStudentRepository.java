@@ -22,7 +22,7 @@ public interface ClassroomStudentRepository extends JpaRepository<ClassroomStude
 
     @Modifying
     @Transactional
-    @Query("DELETE FROM ClassroomStudent cs WHERE cs.classroom.course.id = :courseId")
+    @Query("DELETE FROM ClassroomStudent cs WHERE cs.classroom.id IN (SELECT c.id FROM Classroom c WHERE c.course.id = :courseId)")
     void deleteAllByClassroomCourseId(@Param("courseId") Long courseId);
 
     @Modifying
