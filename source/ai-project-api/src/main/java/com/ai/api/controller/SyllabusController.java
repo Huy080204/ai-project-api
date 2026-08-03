@@ -176,7 +176,9 @@ public class SyllabusController extends ABasicController {
             syllabus.setOrdering(form.getOrdering());
             courseId = syllabus.getCourse().getId();
 
-            if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
+            if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind())) {
+                chapterTimelineSums.putIfAbsent(syllabus.getId(), 0);
+            } else if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
                 if (form.getChapterId() == null) {
                     throw new BadRequestException("chapterId is required for lesson");
                 }

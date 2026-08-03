@@ -640,6 +640,39 @@ class SyllabusControllerTest {
         assertThat(courseCaptor.getValue().getTotalTimeline()).isEqualTo(35);
     }
 
+    @Test
+    void shouldResetChapterTimelineToZeroWhenNoLessonInBatchPointsToIt() {
+        // Arrange - a Chapter item is present in the batch (being reordered, like every other
+        // row) but no Lesson item in this batch carries its chapterId anymore (its only lesson
+        // moved to a different chapter) - the chapter must reset to 0, not keep its stale value.
+        UpdateSyllabusOrderingForm chapterForm = new UpdateSyllabusOrderingForm();
+        chapterForm.setId(6L);
+        chapterForm.setOrdering(1);
+        UpdateSyllabusOrderingForm lessonForm = new UpdateSyllabusOrderingForm();
+        lessonForm.setId(1L);
+        lessonForm.setOrdering(2);
+        lessonForm.setChapterId(7L);
+
+        Course course = course(1L);
+        Syllabus chapter = chapterSyllabus(6L, course, 15);
+        Syllabus otherChapter = chapterSyllabus(7L, course, 0);
+        Syllabus lesson = lessonSyllabus(1L, course, 15);
+
+        when(syllabusRepository.findById(6L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(lesson));
+        when(syllabusRepository.findById(7L)).thenReturn(Optional.of(otherChapter));
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(15);
+
+        // Act
+        syllabusController.updateOrdering(Arrays.asList(chapterForm, lessonForm));
+
+        // Assert
+        assertThat(chapter.getTimeline()).isEqualTo(0);
+        assertThat(otherChapter.getTimeline()).isEqualTo(15);
+        verify(syllabusRepository, times(2)).save(any());
+    }
+
     // --------------------------------------------------------------- publicList
 
     @Test
