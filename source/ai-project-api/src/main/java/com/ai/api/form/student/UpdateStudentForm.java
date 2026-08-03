@@ -3,6 +3,7 @@ package com.ai.api.form.student;
 import com.ai.api.form.StringToLongDeserializer;
 import com.ai.api.validation.EmailConstraint;
 import com.ai.api.validation.PhoneConstraint;
+import com.ai.api.validation.UsernameConstraint;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -35,4 +36,11 @@ public class UpdateStudentForm {
     @PhoneConstraint
     @Schema(name = "phone", requiredMode = Schema.RequiredMode.REQUIRED)
     private String phone;
+
+    @UsernameConstraint
+    @Schema(name = "username", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String username;
+
+    @Schema(name = "password")
+    private String password;
 }
