@@ -8,10 +8,12 @@ import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
+import javax.persistence.criteria.Subquery;
 
 import org.springframework.data.jpa.domain.Specification;
 
 import com.ai.api.constant.AIConstant;
+import com.ai.api.model.ClassroomStudent;
 import com.ai.api.model.Student;
 
 import lombok.Data;
@@ -26,6 +28,7 @@ public class StudentCriteria implements Serializable {
     private String phone;
     private String fullName;
     private Long groupId;
+    private Long ignoreClassroomId;
 
     public Specification<Student> getCriteria() {
         return new Specification<Student>() {
@@ -55,6 +58,13 @@ public class StudentCriteria implements Serializable {
                 }
                 if (getGroupId() != null) {
                     predicates.add(cb.equal(root.get("account").get("group").get("id"), getGroupId()));
+                }
+                if (getIgnoreClassroomId() != null) {
+                    Subquery<Long> subquery = query.subquery(Long.class);
+                    Root<ClassroomStudent> subRoot = subquery.from(ClassroomStudent.class);
+                    subquery.select(subRoot.get("student").get("id"))
+                            .where(cb.equal(subRoot.get("classroom").get("id"), getIgnoreClassroomId()));
+                    predicates.add(cb.not(root.get("id").in(subquery)));
                 }
                 predicates.add(cb.notEqual(root.get("status"), AIConstant.STATUS_DELETE));
                 return cb.and(predicates.toArray(new Predicate[predicates.size()]));
