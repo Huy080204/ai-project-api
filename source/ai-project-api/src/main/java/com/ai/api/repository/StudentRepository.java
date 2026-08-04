@@ -15,6 +15,8 @@ import java.util.Optional;
 public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpecificationExecutor<Student> {
     Optional<Student> findFirstByAccountPhoneOrAccountEmail(String phone, String email);
 
+    Optional<Student> findFirstByAccountPhone(String phone);
+
     Optional<Student> findByIdAndStatus(Long id, Integer status);
 
     // cs.state = 1 -> AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT

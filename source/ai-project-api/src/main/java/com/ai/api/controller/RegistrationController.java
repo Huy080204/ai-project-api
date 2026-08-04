@@ -22,6 +22,7 @@ import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.repository.SyllabusRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -79,14 +80,16 @@ public class RegistrationController extends ABasicController {
             throw new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND);
         }
 
-        if (registrationRepository.existsByClassroomIdAndEmail(createRegistrationForm.getClassroomId(), createRegistrationForm.getEmail())) {
-            throw new BadRequestException("Email already registered for this classroom", ErrorCode.REGISTRATION_ERROR_EMAIL_EXIST);
+        if (StringUtils.isNotBlank(createRegistrationForm.getEmail())) {
+            if (registrationRepository.existsByClassroomIdAndEmail(createRegistrationForm.getClassroomId(), createRegistrationForm.getEmail())) {
+                throw new BadRequestException("Email already registered for this classroom", ErrorCode.REGISTRATION_ERROR_EMAIL_EXIST);
+            }
+            if (classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(createRegistrationForm.getClassroomId(), createRegistrationForm.getEmail())) {
+                throw new BadRequestException("Email already registered for this classroom", ErrorCode.REGISTRATION_ERROR_EMAIL_EXIST);
+            }
         }
         if (registrationRepository.existsByClassroomIdAndPhone(createRegistrationForm.getClassroomId(), createRegistrationForm.getPhone())) {
             throw new BadRequestException("Phone already registered for this classroom", ErrorCode.REGISTRATION_ERROR_PHONE_EXIST);
-        }
-        if (classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(createRegistrationForm.getClassroomId(), createRegistrationForm.getEmail())) {
-            throw new BadRequestException("Email already registered for this classroom", ErrorCode.REGISTRATION_ERROR_EMAIL_EXIST);
         }
         if (classroomStudentRepository.existsByClassroomIdAndStudentAccountPhone(createRegistrationForm.getClassroomId(), createRegistrationForm.getPhone())) {
             throw new BadRequestException("Phone already registered for this classroom", ErrorCode.REGISTRATION_ERROR_PHONE_EXIST);

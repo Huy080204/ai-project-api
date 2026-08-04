@@ -24,9 +24,8 @@ public class CreateRegistrationForm {
     @Schema(name = "fullName", requiredMode = Schema.RequiredMode.REQUIRED)
     private String fullName;
 
-    @NotBlank(message = "email cant not be null")
-    @EmailConstraint
-    @Schema(name = "email", requiredMode = Schema.RequiredMode.REQUIRED)
+    @EmailConstraint(allowNull = true)
+    @Schema(name = "email", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private String email;
 
     @NotBlank(message = "phone cant not be null")
