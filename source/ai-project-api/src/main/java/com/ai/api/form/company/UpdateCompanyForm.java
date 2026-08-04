@@ -1,6 +1,7 @@
 package com.ai.api.form.company;
 
 import com.ai.api.form.StringToLongDeserializer;
+import com.ai.api.validation.StatusConstraint;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -25,4 +26,8 @@ public class UpdateCompanyForm {
     @NotBlank(message = "avatar cant not be null")
     @Schema(name = "avatar", requiredMode = Schema.RequiredMode.REQUIRED)
     private String avatar;
+
+    @StatusConstraint
+    @Schema(name = "status", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Integer status;
 }
