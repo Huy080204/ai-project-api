@@ -83,11 +83,11 @@ public class SyllabusController extends ABasicController {
             syllabus.setTimeline(createSyllabusForm.getTimeline());
             chapter.setTimeline(chapter.getTimeline() + syllabus.getTimeline());
             syllabusRepository.save(chapter);
-        }
 
-        syllabusRepository.save(syllabus);
-        if (AIConstant.SYLLABUS_KIND_LESSON.equals(createSyllabusForm.getKind())) {
+            syllabusRepository.save(syllabus);
             courseRepository.updateTotalTimelineByDelta(createSyllabusForm.getCourseId(), syllabus.getTimeline());
+        } else {
+            syllabusRepository.save(syllabus);
         }
         return makeSuccessResponse("Create syllabus success");
     }
@@ -170,7 +170,7 @@ public class SyllabusController extends ABasicController {
                 Syllabus below = syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(
                         courseId, syllabus.getOrdering()).orElse(null);
                 if (below != null && AIConstant.SYLLABUS_KIND_LESSON.equals(below.getKind())) {
-                    throw new BadRequestException("Cannot delete the first chapter while a lesson remains under it");
+                    throw new BadRequestException("Cannot delete the first chapter while a lesson remains under it", ErrorCode.SYLLABUS_ERROR_UNABLE_DELETE);
                 }
             }
 
