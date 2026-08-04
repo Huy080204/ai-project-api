@@ -12,9 +12,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SyllabusRepository extends JpaRepository<Syllabus, Long>, JpaSpecificationExecutor<Syllabus> {
-    @Query("SELECT COALESCE(SUM(s.timeline), 0) FROM Syllabus s WHERE s.course.id = :courseId AND s.kind = :kind")
-    Integer sumTimelineByCourseIdAndKind(@Param("courseId") Long courseId, @Param("kind") Integer kind);
-
     @Query("SELECT s.avatar FROM Syllabus s WHERE s.course.id = :courseId AND s.avatar IS NOT NULL")
     List<String> findAvatarsByCourseId(@Param("courseId") Long courseId);
 
@@ -26,4 +23,8 @@ public interface SyllabusRepository extends JpaRepository<Syllabus, Long>, JpaSp
     List<Syllabus> findByCourseIdOrderByOrderingAsc(Long courseId);
 
     Optional<Syllabus> findTopByCourseIdAndKindOrderByOrderingDesc(Long courseId, Integer kind);
+
+    Optional<Syllabus> findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(Long courseId, Integer kind, Integer ordering);
+
+    Optional<Syllabus> findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(Long courseId, Integer ordering);
 }
