@@ -11,7 +11,6 @@ import com.ai.api.form.classroomstudent.ChangeClassroomStudentStateForm;
 import com.ai.api.form.classroomstudent.RegisterClassroomStudentForm;
 import com.ai.api.form.classroomstudent.RegisterFromRegistrationForm;
 import com.ai.api.mapper.ClassroomStudentMapper;
-import com.ai.api.mapper.RegistrationMapper;
 import com.ai.api.model.Account;
 import com.ai.api.model.Classroom;
 import com.ai.api.model.ClassroomStudent;
@@ -28,6 +27,7 @@ import com.ai.api.repository.StudentRepository;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -83,9 +83,6 @@ class ClassroomStudentControllerTest {
 
     @Mock
     private GroupRepository groupRepository;
-
-    @Mock
-    private RegistrationMapper registrationMapper;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -384,7 +381,23 @@ class ClassroomStudentControllerTest {
     }
 
     @Test
-    void shouldThrowBadRequestWhenDeleteClassroomStudentStateNotPending() {
+    void shouldDeleteClassroomStudentSuccessfullyWhenStateReject() {
+        // Arrange
+        ClassroomStudent classroomStudent = new ClassroomStudent();
+        classroomStudent.setId(12L);
+        classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_REJECT);
+        when(classroomStudentRepository.findById(12L)).thenReturn(Optional.of(classroomStudent));
+
+        // Act
+        ApiMessageDto<Void> result = classroomStudentController.delete(12L);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(classroomStudentRepository).deleteById(12L);
+    }
+
+    @Test
+    void shouldThrowBadRequestWhenDeleteClassroomStudentStateAccept() {
         // Arrange
         ClassroomStudent classroomStudent = new ClassroomStudent();
         classroomStudent.setId(11L);
@@ -493,13 +506,10 @@ class ClassroomStudentControllerTest {
         studentGroup.setId(9L);
         studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
 
-        Account mappedAccount = new Account();
-
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0933333333", "new@example.com")).thenReturn(Optional.empty());
-        when(accountRepository.existsByUsername("new@example.com")).thenReturn(false);
+        when(accountRepository.existsByUsername("0933333333")).thenReturn(false);
         when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
-        when(registrationMapper.fromRegistrationToAccount(registration)).thenReturn(mappedAccount);
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
 
         // Act
@@ -507,11 +517,16 @@ class ClassroomStudentControllerTest {
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(mappedAccount.getUsername()).isEqualTo("new@example.com");
-        assertThat(mappedAccount.getKind()).isEqualTo(AIConstant.USER_KIND_STUDENT);
-        assertThat(mappedAccount.getPassword()).isEqualTo("encoded-password");
-        assertThat(mappedAccount.getGroup()).isEqualTo(studentGroup);
-        verify(accountRepository).save(mappedAccount);
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        assertThat(savedAccount.getFullName()).isEqualTo("Registrant Name");
+        assertThat(savedAccount.getEmail()).isEqualTo("new@example.com");
+        assertThat(savedAccount.getPhone()).isEqualTo("0933333333");
+        assertThat(savedAccount.getUsername()).isEqualTo("0933333333");
+        assertThat(savedAccount.getKind()).isEqualTo(AIConstant.USER_KIND_STUDENT);
+        assertThat(savedAccount.getPassword()).isEqualTo("encoded-password");
+        assertThat(savedAccount.getGroup()).isEqualTo(studentGroup);
         verify(studentRepository).save(any(Student.class));
         verify(classroomStudentRepository).save(any(ClassroomStudent.class));
         verify(registrationRepository).deleteById(1L);
@@ -541,7 +556,7 @@ class ClassroomStudentControllerTest {
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0944444444", "dup@example.com")).thenReturn(Optional.empty());
-        when(accountRepository.existsByUsername("dup@example.com")).thenReturn(true);
+        when(accountRepository.existsByUsername("0944444444")).thenReturn(true);
 
         // Act + Assert
         assertThatThrownBy(() -> classroomStudentController.registerFromRegistration(form, bindingResult))
@@ -562,7 +577,7 @@ class ClassroomStudentControllerTest {
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0955555555", "nogroup@example.com")).thenReturn(Optional.empty());
-        when(accountRepository.existsByUsername("nogroup@example.com")).thenReturn(false);
+        when(accountRepository.existsByUsername("0955555555")).thenReturn(false);
         when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(null);
 
         // Act + Assert
@@ -599,5 +614,255 @@ class ClassroomStudentControllerTest {
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED));
         verify(classroomStudentRepository, never()).save(any());
         verify(registrationRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldThrowBadRequestWhenAlreadyRegisteredByEmailOnCreatePath() {
+        // Arrange - no Student matches this email/phone at all (findFirst empty), but a
+        // ClassroomStudent row already exists in this classroom for that email via a *different*
+        // Student record (possible since Account.email/phone carry no unique constraint) - the
+        // studentId-keyed check alone would miss this, so resolveStudent must also check by email
+        // directly before creating a new Account.
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "dup@example.com", "0911100000");
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911100000", "dup@example.com")).thenReturn(Optional.empty());
+        when(classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(5L, "dup@example.com")).thenReturn(true);
+
+        // Act + Assert
+        assertThatThrownBy(() -> classroomStudentController.registerFromRegistration(form, bindingResult))
+                .isInstanceOfSatisfying(BadRequestException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED));
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
+        verify(classroomStudentRepository, never()).save(any());
+        verify(registrationRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldThrowBadRequestWhenAlreadyRegisteredByPhoneOnCreatePath() {
+        // Arrange - same as above, but the duplicate signal is on phone instead of email
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "fresh@example.com", "0911100001");
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911100001", "fresh@example.com")).thenReturn(Optional.empty());
+        when(classroomStudentRepository.existsByClassroomIdAndStudentAccountEmail(5L, "fresh@example.com")).thenReturn(false);
+        when(classroomStudentRepository.existsByClassroomIdAndStudentAccountPhone(5L, "0911100001")).thenReturn(true);
+
+        // Act + Assert
+        assertThatThrownBy(() -> classroomStudentController.registerFromRegistration(form, bindingResult))
+                .isInstanceOfSatisfying(BadRequestException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED));
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
+        verify(classroomStudentRepository, never()).save(any());
+        verify(registrationRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldOverrideFullNameFromFormOnNewStudentCreation() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setFullName("New Name");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
+        registration.setFullName("Old Name");
+
+        Group studentGroup = new Group();
+        studentGroup.setId(9L);
+        studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0933333333", "new@example.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("0933333333")).thenReturn(false);
+        when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
+        when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        assertThat(accountCaptor.getValue().getFullName()).isEqualTo("New Name");
+    }
+
+    @Test
+    void shouldKeepRegistrationFullNameWhenFormFullNameBlank() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
+        registration.setFullName("Old Name");
+
+        Group studentGroup = new Group();
+        studentGroup.setId(9L);
+        studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0933333333", "new@example.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("0933333333")).thenReturn(false);
+        when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
+        when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        assertThat(accountCaptor.getValue().getFullName()).isEqualTo("Old Name");
+    }
+
+    @Test
+    void shouldOverrideEmailAndPhoneFromFormOnNewStudentCreation() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setEmail("override@example.com");
+        form.setPhone("0955555555");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, null, "0966666666");
+
+        Group studentGroup = new Group();
+        studentGroup.setId(9L);
+        studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0955555555", "override@example.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("0955555555")).thenReturn(false);
+        when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
+        when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        assertThat(savedAccount.getEmail()).isEqualTo("override@example.com");
+        assertThat(savedAccount.getPhone()).isEqualTo("0955555555");
+        assertThat(savedAccount.getUsername()).isEqualTo("0955555555");
+    }
+
+    @Test
+    void shouldFallBackToRegistrationEmailPhoneWhenFormBlank() {
+        // Arrange - Registration has no email (now optional), form supplies no override either
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, null, "0977777777");
+
+        Group studentGroup = new Group();
+        studentGroup.setId(9L);
+        studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhone("0977777777")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("0977777777")).thenReturn(false);
+        when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
+        when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        assertThat(savedAccount.getEmail()).isNull();
+        assertThat(savedAccount.getPhone()).isEqualTo("0977777777");
+        assertThat(savedAccount.getUsername()).isEqualTo("0977777777");
+        // A null email must never reach the OR-equality lookup: Spring Data's Criteria-API-based
+        // query derivation turns "accountEmail = null" into "accountEmail IS NULL", which would
+        // spuriously match any unrelated Student whose Account has no email at all.
+        verify(studentRepository, never()).findFirstByAccountPhoneOrAccountEmail(any(), any());
+    }
+
+    @Test
+    void shouldUseOverriddenPhoneForStudentLookup() {
+        // Arrange - form's phone override is what drives the resolveStudent lookup, not registration.getPhone()
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setPhone("0988888888");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "reg@example.com", "0977777777");
+
+        Account existingAccount = new Account();
+        existingAccount.setId(23L);
+        existingAccount.setPhone("0988888888");
+        Student existingStudent = new Student();
+        existingStudent.setId(23L);
+        existingStudent.setAccount(existingAccount);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0988888888", "reg@example.com")).thenReturn(Optional.of(existingStudent));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 23L)).thenReturn(false);
+
+        // Act
+        ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
+        verify(classroomStudentRepository).save(any(ClassroomStudent.class));
+    }
+
+    @Test
+    void shouldIgnoreFormEmailPhoneOnExistingStudentPath() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setEmail("ignored@example.com");
+        form.setPhone("0999999999");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
+
+        Account existingAccount = new Account();
+        existingAccount.setId(20L);
+        existingAccount.setEmail("existing@example.com");
+        Student existingStudent = new Student();
+        existingStudent.setId(20L);
+        existingStudent.setAccount(existingAccount);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0999999999", "ignored@example.com")).thenReturn(Optional.of(existingStudent));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert - reuse branch is untouched by form email/phone
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldIgnoreFormFullNameOnExistingStudentPath() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setFullName("Ignored Name");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
+
+        Account existingAccount = new Account();
+        existingAccount.setId(20L);
+        existingAccount.setEmail("existing@example.com");
+        Student existingStudent = new Student();
+        existingStudent.setId(20L);
+        existingStudent.setAccount(existingAccount);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert - reuse branch is untouched by form fullName
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
     }
 }

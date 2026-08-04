@@ -2,7 +2,6 @@ package com.ai.api.mapper;
 
 import com.ai.api.dto.registration.RegistrationDto;
 import com.ai.api.form.registration.CreateRegistrationForm;
-import com.ai.api.model.Account;
 import com.ai.api.model.Registration;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.IterableMapping;
@@ -43,10 +42,4 @@ public interface RegistrationMapper {
     @IterableMapping(elementTargetType = RegistrationDto.class, qualifiedByName = "fromEntityToRegistrationDto")
     @Named("fromEntityToRegistrationDtoList")
     List<RegistrationDto> fromEntityToRegistrationDtoList(List<Registration> registrations);
-
-    @Mapping(source = "fullName", target = "fullName")
-    @Mapping(source = "email", target = "email")
-    @Mapping(source = "phone", target = "phone")
-    @BeanMapping(ignoreByDefault = true)
-    Account fromRegistrationToAccount(Registration registration);
 }

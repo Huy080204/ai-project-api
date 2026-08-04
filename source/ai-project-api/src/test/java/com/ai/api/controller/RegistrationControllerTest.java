@@ -189,6 +189,29 @@ class RegistrationControllerTest {
     }
 
     @Test
+    void shouldCreateRegistrationSuccessfullyWithNoEmail() {
+        // Arrange
+        CreateRegistrationForm form = createForm(5L, null, "0123456789");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = activeClassroom(5L);
+        Registration registration = new Registration();
+
+        when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
+        when(registrationRepository.existsByClassroomIdAndPhone(5L, "0123456789")).thenReturn(false);
+        when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
+
+        // Act
+        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(registration.getClassroom()).isEqualTo(classroom);
+        verify(registrationRepository).save(registration);
+        verify(registrationRepository, never()).existsByClassroomIdAndEmail(any(), any());
+        verify(classroomStudentRepository, never()).existsByClassroomIdAndStudentAccountEmail(any(), any());
+    }
+
+    @Test
     void shouldThrowBadRequestWhenCreateRegistrationDuplicateEmail() {
         // Arrange - the classroom lookup runs before the duplicate checks
         CreateRegistrationForm form = createForm(5L, "john@example.com", "0123456789");
