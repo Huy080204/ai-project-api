@@ -86,7 +86,9 @@ public class SyllabusController extends ABasicController {
         }
 
         syllabusRepository.save(syllabus);
-        refreshCourseTotalTimeline(createSyllabusForm.getCourseId());
+        if (AIConstant.SYLLABUS_KIND_LESSON.equals(createSyllabusForm.getKind())) {
+            courseRepository.updateTotalTimelineByDelta(createSyllabusForm.getCourseId(), syllabus.getTimeline());
+        }
         return makeSuccessResponse("Create syllabus success");
     }
 
@@ -105,10 +107,11 @@ public class SyllabusController extends ABasicController {
                 throw new BadRequestException("chapterId is required for lesson");
             }
             Syllabus chapter = resolveChapter(updateSyllabusForm.getChapterId(), syllabus.getCourse().getId());
-            Integer delta = updateSyllabusForm.getTimeline() - syllabus.getTimeline();
+            Integer timelineDelta = updateSyllabusForm.getTimeline() - syllabus.getTimeline();
             syllabus.setTimeline(updateSyllabusForm.getTimeline());
-            chapter.setTimeline(chapter.getTimeline() + delta);
+            chapter.setTimeline(chapter.getTimeline() + timelineDelta);
             syllabusRepository.save(chapter);
+            courseRepository.updateTotalTimelineByDelta(syllabus.getCourse().getId(), timelineDelta);
         }
 
         if (StringUtils.isNoneBlank(syllabus.getAvatar())
@@ -117,7 +120,6 @@ public class SyllabusController extends ABasicController {
         }
         syllabusMapper.updateEntityFromForm(updateSyllabusForm, syllabus);
         syllabusRepository.save(syllabus);
-        refreshCourseTotalTimeline(syllabus.getCourse().getId());
         return makeSuccessResponse("Update syllabus success");
     }
 
@@ -146,19 +148,38 @@ public class SyllabusController extends ABasicController {
         Long courseId = syllabus.getCourse().getId();
 
         if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
+            // Handle lesson deletion: update parent chapter timeline and subtract from course total timeline
             if (chapterId == null) {
                 throw new BadRequestException("chapterId is required for lesson");
             }
             Syllabus chapter = resolveChapter(chapterId, courseId);
             chapter.setTimeline(chapter.getTimeline() - syllabus.getTimeline());
             syllabusRepository.save(chapter);
+
+            syllabusRepository.deleteById(id);
+            courseRepository.updateTotalTimelineByDelta(courseId, -syllabus.getTimeline());
+        } else if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind())) {
+            // Handle chapter deletion: merge timeline into upper chapter or prevent orphaned lessons
+            Syllabus upperChapter = syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                    courseId, AIConstant.SYLLABUS_KIND_CHAPTER, syllabus.getOrdering()).orElse(null);
+            if (upperChapter != null) {
+                upperChapter.setTimeline(upperChapter.getTimeline() + syllabus.getTimeline());
+                syllabusRepository.save(upperChapter);
+            } else {
+                // Prevent deleting the first chapter if it leaves orphaned lessons below it
+                Syllabus below = syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(
+                        courseId, syllabus.getOrdering()).orElse(null);
+                if (below != null && AIConstant.SYLLABUS_KIND_LESSON.equals(below.getKind())) {
+                    throw new BadRequestException("Cannot delete the first chapter while a lesson remains under it");
+                }
+            }
+
+            syllabusRepository.deleteById(id);
         }
 
         if (StringUtils.isNoneBlank(syllabus.getAvatar())) {
             fileService.deleteFile(syllabus.getAvatar());
         }
-        syllabusRepository.deleteById(id);
-        refreshCourseTotalTimeline(courseId);
         return makeSuccessResponse("Delete syllabus success");
     }
 
@@ -194,9 +215,6 @@ public class SyllabusController extends ABasicController {
             chapter.setTimeline(entry.getValue());
             syllabusRepository.save(chapter);
         }
-        if (courseId != null) {
-            refreshCourseTotalTimeline(courseId);
-        }
         return makeSuccessResponse("Update syllabus ordering success");
     }
 
@@ -208,14 +226,6 @@ public class SyllabusController extends ABasicController {
         criteria.setStatus(AIConstant.STATUS_ACTIVE);
         Page<Syllabus> syllabuses = syllabusRepository.findAll(criteria.getSpecification(), pageable);
         return makeSuccessResponse(makeResponseListDto(syllabuses, syllabusMapper::fromEntityToSyllabusDtoList), "List syllabus success");
-    }
-
-    private void refreshCourseTotalTimeline(Long courseId) {
-        Integer sum = syllabusRepository.sumTimelineByCourseIdAndKind(courseId, AIConstant.SYLLABUS_KIND_CHAPTER);
-        courseRepository.findById(courseId).ifPresent(course -> {
-            course.setTotalTimeline(sum);
-            courseRepository.save(course);
-        });
     }
 
     private Syllabus resolveChapter(Long chapterId, Long courseId) {

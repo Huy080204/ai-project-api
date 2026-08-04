@@ -148,19 +148,17 @@ class SyllabusControllerTest {
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
         when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(0);
 
         // Act
         ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
 
-        // Assert
+        // Assert - a Chapter create never triggers a course-total recompute (Lesson rows,
+        // never Chapter rows, are what the recompute sums over).
         assertThat(result.getResult()).isTrue();
         assertThat(syllabus.getTimeline()).isEqualTo(0);
         assertThat(syllabus.getCourse()).isEqualTo(course);
         verify(syllabusRepository).save(syllabus);
-        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
-        verify(courseRepository).save(courseCaptor.capture());
-        assertThat(courseCaptor.getValue().getTotalTimeline()).isEqualTo(0);
+        verify(courseRepository, never()).save(any());
     }
 
     @Test
@@ -178,7 +176,6 @@ class SyllabusControllerTest {
         when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
         when(syllabusRepository.findTopByCourseIdAndKindOrderByOrderingDesc(1L, AIConstant.SYLLABUS_KIND_CHAPTER))
                 .thenReturn(Optional.of(chapter));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(45);
 
         // Act
         ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
@@ -192,10 +189,7 @@ class SyllabusControllerTest {
         // verify by call count and rely on the direct state assertions above instead of
         // verify(mock).save(specificInstance), which Mockito cannot disambiguate here.
         verify(syllabusRepository, times(2)).save(any());
-
-        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
-        verify(courseRepository).save(courseCaptor.capture());
-        assertThat(courseCaptor.getValue().getTotalTimeline()).isEqualTo(45);
+        verify(courseRepository).updateTotalTimelineByDelta(1L, 45);
     }
 
     @Test
@@ -253,7 +247,6 @@ class SyllabusControllerTest {
 
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
         when(syllabusRepository.findById(5L)).thenReturn(Optional.of(chapter));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(30);
 
         // Act
         ApiMessageDto<Void> result = syllabusController.update(form, bindingResult);
@@ -265,6 +258,29 @@ class SyllabusControllerTest {
         // See the note in the create-lesson test above: entity equals() is unusable for
         // per-instance verify(), so assert by count + captured state instead.
         verify(syllabusRepository, times(2)).save(any());
+        verify(courseRepository).updateTotalTimelineByDelta(1L, 10);
+    }
+
+    @Test
+    void shouldUpdateChapterSyllabusWithoutRefreshingCourseTotalTimeline() {
+        // Arrange - a Chapter update (name/description only, timeline untouched) never
+        // triggers a course-total recompute; only Lesson-side operations do.
+        UpdateSyllabusForm form = updateForm(1L, "avatar.png", null, null);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Course course = course(1L);
+        Syllabus syllabus = chapterSyllabus(1L, course, 40);
+        syllabus.setAvatar("avatar.png");
+
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
+
+        // Act
+        ApiMessageDto<Void> result = syllabusController.update(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(syllabusMapper).updateEntityFromForm(form, syllabus);
+        verify(syllabusRepository).save(syllabus);
+        verify(courseRepository, never()).save(any());
     }
 
     @Test
@@ -373,8 +389,6 @@ class SyllabusControllerTest {
 
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
         when(syllabusRepository.findById(5L)).thenReturn(Optional.of(chapter));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(20);
 
         // Act
         syllabusController.update(form, bindingResult);
@@ -395,8 +409,6 @@ class SyllabusControllerTest {
 
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
         when(syllabusRepository.findById(5L)).thenReturn(Optional.of(chapter));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(20);
 
         // Act
         syllabusController.update(form, bindingResult);
@@ -463,15 +475,19 @@ class SyllabusControllerTest {
     }
 
     @Test
-    void shouldDeleteSyllabusAndRefreshCourseTotalTimeline() {
-        // Arrange
+    void shouldDeleteChapterSyllabusWithoutRefreshingCourseTotalTimeline() {
+        // Arrange - a Chapter delete (first chapter, nothing below) never triggers a
+        // course-total recompute; only Lesson-side operations do, since totalTimeline sums
+        // over Lesson rows and no Lesson row changes here.
         Course course = course(1L);
-        Syllabus syllabus = new Syllabus();
-        syllabus.setId(1L);
-        syllabus.setCourse(course);
-        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(15);
+        Syllabus chapter = chapterSyllabus(1L, course, 20);
+        chapter.setOrdering(1);
+
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
+        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
+                .thenReturn(Optional.empty());
 
         // Act
         ApiMessageDto<Void> result = syllabusController.delete(1L, null);
@@ -479,9 +495,7 @@ class SyllabusControllerTest {
         // Assert
         assertThat(result.getResult()).isTrue();
         verify(syllabusRepository).deleteById(1L);
-        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
-        verify(courseRepository).save(courseCaptor.capture());
-        assertThat(courseCaptor.getValue().getTotalTimeline()).isEqualTo(15);
+        verify(courseRepository, never()).save(any());
     }
 
     @Test
@@ -494,8 +508,6 @@ class SyllabusControllerTest {
 
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
         when(syllabusRepository.findById(5L)).thenReturn(Optional.of(chapter));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(0);
 
         // Act
         syllabusController.delete(1L, 5L);
@@ -504,10 +516,7 @@ class SyllabusControllerTest {
         verify(syllabusRepository).deleteById(1L);
         assertThat(chapter.getTimeline()).isEqualTo(0);
         verify(syllabusRepository).save(chapter);
-
-        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
-        verify(courseRepository).save(courseCaptor.capture());
-        assertThat(courseCaptor.getValue().getTotalTimeline()).isEqualTo(0);
+        verify(courseRepository).updateTotalTimelineByDelta(1L, -20);
     }
 
     @Test
@@ -538,8 +547,6 @@ class SyllabusControllerTest {
         syllabus.setAvatar("/avatar/to-delete.png");
         syllabus.setCourse(course);
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(0);
 
         // Act
         syllabusController.delete(1L, null);
@@ -556,14 +563,111 @@ class SyllabusControllerTest {
         syllabus.setId(1L);
         syllabus.setCourse(course);
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(0);
 
         // Act
         syllabusController.delete(1L, null);
 
         // Assert
         verify(fileService, never()).deleteFile(any());
+    }
+
+    // ------------------------------------------------------------ delete chapter
+
+    @Test
+    void shouldMergeTimelineOntoUpperChapterWhenDeletingChapterWithUpperChapter() {
+        // Arrange - deleting a Chapter that has an upper Chapter merges its timeline onto it
+        // instead of discarding it.
+        Course course = course(1L);
+        Syllabus upperChapter = chapterSyllabus(2L, course, 10);
+        upperChapter.setOrdering(1);
+        Syllabus chapter = chapterSyllabus(3L, course, 20);
+        chapter.setOrdering(2);
+
+        when(syllabusRepository.findById(3L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 2)).thenReturn(Optional.of(upperChapter));
+
+        // Act
+        syllabusController.delete(3L, null);
+
+        // Assert - Chapter delete never triggers a course-total recompute.
+        assertThat(upperChapter.getTimeline()).isEqualTo(30);
+        verify(syllabusRepository).save(upperChapter);
+        verify(syllabusRepository).deleteById(3L);
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowBadRequestWhenDeletingFirstChapterWithLessonImmediatelyBelow() {
+        // Arrange - first Chapter (no upper Chapter) with a Lesson immediately below cannot be
+        // deleted: it would orphan the lesson's timeline. Must fail before any delete/file call.
+        Course course = course(1L);
+        Syllabus chapter = chapterSyllabus(1L, course, 20);
+        chapter.setOrdering(1);
+        chapter.setAvatar("/avatar/chapter.png");
+        Syllabus lessonBelow = lessonSyllabus(2L, course, 10);
+        lessonBelow.setOrdering(2);
+
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
+        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
+                .thenReturn(Optional.of(lessonBelow));
+
+        // Act + Assert
+        assertThatThrownBy(() -> syllabusController.delete(1L, null))
+                .isInstanceOf(BadRequestException.class);
+        verify(syllabusRepository, never()).deleteById(any());
+        verify(fileService, never()).deleteFile(any());
+        verify(syllabusRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDeleteFirstChapterWithoutTimelineWriteWhenNoLessonImmediatelyBelow() {
+        // Arrange - first Chapter (no upper Chapter) with nothing (or another Chapter)
+        // immediately below is free to delete; no timeline merge/write happens.
+        Course course = course(1L);
+        Syllabus chapter = chapterSyllabus(1L, course, 20);
+        chapter.setOrdering(1);
+
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
+        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
+                .thenReturn(Optional.empty());
+
+        // Act
+        syllabusController.delete(1L, null);
+
+        // Assert
+        verify(syllabusRepository).deleteById(1L);
+        verify(syllabusRepository, never()).save(any());
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldDeleteFirstChapterWithoutTimelineWriteWhenChapterImmediatelyBelow() {
+        // Arrange - first Chapter (no upper Chapter) followed immediately by another Chapter
+        // (not a Lesson) is free to delete; no timeline merge/write happens.
+        Course course = course(1L);
+        Syllabus chapter = chapterSyllabus(1L, course, 20);
+        chapter.setOrdering(1);
+        Syllabus chapterBelow = chapterSyllabus(2L, course, 0);
+        chapterBelow.setOrdering(2);
+
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
+        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
+                .thenReturn(Optional.of(chapterBelow));
+
+        // Act
+        syllabusController.delete(1L, null);
+
+        // Assert
+        verify(syllabusRepository).deleteById(1L);
+        verify(syllabusRepository, never()).save(any());
+        verify(courseRepository, never()).save(any());
     }
 
     // ------------------------------------------------------------ update-ordering
@@ -623,21 +727,17 @@ class SyllabusControllerTest {
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(lesson1));
         when(syllabusRepository.findById(2L)).thenReturn(Optional.of(lesson2));
         when(syllabusRepository.findById(6L)).thenReturn(Optional.of(chapter));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(35);
 
         // Act
         syllabusController.updateOrdering(Arrays.asList(lessonForm1, lessonForm2));
 
-        // Assert
+        // Assert - update-ordering never touches Lesson timelines, so it never triggers a
+        // course-total recompute either.
         assertThat(lesson1.getOrdering()).isEqualTo(10);
         assertThat(lesson2.getOrdering()).isEqualTo(11);
         assertThat(chapter.getTimeline()).isEqualTo(35);
         verify(syllabusRepository).save(chapter);
-
-        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
-        verify(courseRepository, times(1)).save(courseCaptor.capture());
-        assertThat(courseCaptor.getValue().getTotalTimeline()).isEqualTo(35);
+        verify(courseRepository, never()).save(any());
     }
 
     @Test
@@ -661,8 +761,6 @@ class SyllabusControllerTest {
         when(syllabusRepository.findById(6L)).thenReturn(Optional.of(chapter));
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(lesson));
         when(syllabusRepository.findById(7L)).thenReturn(Optional.of(otherChapter));
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.sumTimelineByCourseIdAndKind(1L, AIConstant.SYLLABUS_KIND_CHAPTER)).thenReturn(15);
 
         // Act
         syllabusController.updateOrdering(Arrays.asList(chapterForm, lessonForm));
@@ -671,6 +769,7 @@ class SyllabusControllerTest {
         assertThat(chapter.getTimeline()).isEqualTo(0);
         assertThat(otherChapter.getTimeline()).isEqualTo(15);
         verify(syllabusRepository, times(2)).save(any());
+        verify(courseRepository, never()).save(any());
     }
 
     // --------------------------------------------------------------- publicList
