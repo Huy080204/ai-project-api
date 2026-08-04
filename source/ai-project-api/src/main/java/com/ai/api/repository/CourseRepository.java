@@ -17,7 +17,7 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
 
     boolean existsByNameAndIdNot(String name, Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Transactional
     @Query("UPDATE Course c SET c.totalTimeline = COALESCE(c.totalTimeline, 0) + :delta WHERE c.id = :courseId")
     void updateTotalTimelineByDelta(@Param("courseId") Long courseId, @Param("delta") Integer delta);
