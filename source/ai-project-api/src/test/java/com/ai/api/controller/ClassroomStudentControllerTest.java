@@ -384,6 +384,22 @@ class ClassroomStudentControllerTest {
     }
 
     @Test
+    void shouldDeleteClassroomStudentSuccessfullyWhenStateReject() {
+        // Arrange
+        ClassroomStudent classroomStudent = new ClassroomStudent();
+        classroomStudent.setId(12L);
+        classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_REJECT);
+        when(classroomStudentRepository.findById(12L)).thenReturn(Optional.of(classroomStudent));
+
+        // Act
+        ApiMessageDto<Void> result = classroomStudentController.delete(12L);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(classroomStudentRepository).deleteById(12L);
+    }
+
+    @Test
     void shouldThrowBadRequestWhenDeleteClassroomStudentStateNotPending() {
         // Arrange
         ClassroomStudent classroomStudent = new ClassroomStudent();
@@ -599,5 +615,91 @@ class ClassroomStudentControllerTest {
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED));
         verify(classroomStudentRepository, never()).save(any());
         verify(registrationRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldOverrideFullNameFromFormOnNewStudentCreation() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setFullName("New Name");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
+        registration.setFullName("Old Name");
+
+        Group studentGroup = new Group();
+        studentGroup.setId(9L);
+        studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
+
+        Account mappedAccount = new Account();
+        mappedAccount.setFullName("Old Name");
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0933333333", "new@example.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("new@example.com")).thenReturn(false);
+        when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
+        when(registrationMapper.fromRegistrationToAccount(registration)).thenReturn(mappedAccount);
+        when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        assertThat(mappedAccount.getFullName()).isEqualTo("New Name");
+    }
+
+    @Test
+    void shouldKeepRegistrationFullNameWhenFormFullNameBlank() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
+        registration.setFullName("Old Name");
+
+        Group studentGroup = new Group();
+        studentGroup.setId(9L);
+        studentGroup.setKind(AIConstant.GROUP_KIND_STUDENT);
+
+        Account mappedAccount = new Account();
+        mappedAccount.setFullName("Old Name");
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0933333333", "new@example.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("new@example.com")).thenReturn(false);
+        when(groupRepository.findFirstByKind(AIConstant.GROUP_KIND_STUDENT)).thenReturn(studentGroup);
+        when(registrationMapper.fromRegistrationToAccount(registration)).thenReturn(mappedAccount);
+        when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        assertThat(mappedAccount.getFullName()).isEqualTo("Old Name");
+    }
+
+    @Test
+    void shouldIgnoreFormFullNameOnExistingStudentPath() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        form.setFullName("Ignored Name");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
+
+        Account existingAccount = new Account();
+        existingAccount.setId(20L);
+        existingAccount.setEmail("existing@example.com");
+        Student existingStudent = new Student();
+        existingStudent.setId(20L);
+        existingStudent.setAccount(existingAccount);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert - reuse branch is untouched by form fullName
+        verify(accountRepository, never()).save(any());
+        verify(studentRepository, never()).save(any());
     }
 }

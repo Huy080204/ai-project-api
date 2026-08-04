@@ -27,6 +27,7 @@ import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -132,8 +133,9 @@ public class ClassroomStudentController extends ABasicController {
     public ApiMessageDto<Void> delete(@PathVariable Long id) {
         ClassroomStudent classroomStudent = classroomStudentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom student not found", ErrorCode.CLASSROOM_STUDENT_ERROR_NOT_FOUND));
-        if (!AIConstant.CLASSROOM_STUDENT_STATE_PENDING.equals(classroomStudent.getState())) {
-            throw new BadRequestException("Unable to delete classroom student that is not pending", ErrorCode.CLASSROOM_STUDENT_ERROR_UNABLE_DELETE);
+        if (!AIConstant.CLASSROOM_STUDENT_STATE_PENDING.equals(classroomStudent.getState())
+                && !AIConstant.CLASSROOM_STUDENT_STATE_REJECT.equals(classroomStudent.getState())) {
+            throw new BadRequestException("Unable to delete classroom student that is accepted", ErrorCode.CLASSROOM_STUDENT_ERROR_UNABLE_DELETE);
         }
         classroomStudentRepository.deleteById(id);
         return makeSuccessResponse("Delete classroom student success");
@@ -156,7 +158,7 @@ public class ClassroomStudentController extends ABasicController {
         Registration registration = registrationRepository.findById(registerFromRegistrationForm.getRegistrationId())
                 .orElseThrow(() -> new NotFoundException("Registration not found", ErrorCode.REGISTRATION_ERROR_NOT_FOUND));
 
-        Student student = resolveStudent(registration);
+        Student student = resolveStudent(registration, registerFromRegistrationForm);
 
         if (classroomStudentRepository.existsByClassroomIdAndStudentId(registration.getClassroom().getId(), student.getId())) {
             throw new BadRequestException("Student already registered to classroom", ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED);
@@ -173,7 +175,7 @@ public class ClassroomStudentController extends ABasicController {
         return makeSuccessResponse("Register classroom student from registration success");
     }
 
-    private Student resolveStudent(Registration registration) {
+    private Student resolveStudent(Registration registration, RegisterFromRegistrationForm form) {
         Optional<Student> student = studentRepository.findFirstByAccountPhoneOrAccountEmail(registration.getPhone(), registration.getEmail());
         if (student.isPresent()) {
             return student.get();
@@ -187,6 +189,11 @@ public class ClassroomStudentController extends ABasicController {
             throw new NotFoundException("Student group not found", ErrorCode.GROUP_ERROR_NOT_FOUND);
         }
         Account account = registrationMapper.fromRegistrationToAccount(registration);
+        if (StringUtils.isNotBlank(form.getFullName())) {
+            account.setFullName(form.getFullName());
+        } else {
+            account.setFullName(registration.getFullName());
+        }
         account.setUsername(registration.getEmail());
         account.setPassword(passwordEncoder.encode(RandomStringUtils.randomAlphanumeric(12)));
         account.setKind(AIConstant.USER_KIND_STUDENT);

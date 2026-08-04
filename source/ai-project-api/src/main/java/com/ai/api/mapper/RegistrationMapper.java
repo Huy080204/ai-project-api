@@ -44,7 +44,6 @@ public interface RegistrationMapper {
     @Named("fromEntityToRegistrationDtoList")
     List<RegistrationDto> fromEntityToRegistrationDtoList(List<Registration> registrations);
 
-    @Mapping(source = "fullName", target = "fullName")
     @Mapping(source = "email", target = "email")
     @Mapping(source = "phone", target = "phone")
     @BeanMapping(ignoreByDefault = true)

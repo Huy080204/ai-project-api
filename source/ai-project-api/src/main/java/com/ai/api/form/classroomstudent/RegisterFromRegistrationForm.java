@@ -16,4 +16,7 @@ public class RegisterFromRegistrationForm {
     @Schema(name = "registrationId", requiredMode = Schema.RequiredMode.REQUIRED)
     @JsonDeserialize(using = StringToLongDeserializer.class)
     private Long registrationId;
+
+    @Schema(name = "fullName", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    private String fullName;
 }
