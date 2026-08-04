@@ -20,6 +20,6 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 
     @Modifying
     @Transactional
-    @Query("DELETE FROM Registration r WHERE r.classroom.course.id = :courseId")
+    @Query("DELETE FROM Registration r WHERE r.classroom.id IN (SELECT c.id FROM Classroom c WHERE c.course.id = :courseId)")
     void deleteAllByClassroomCourseId(@Param("courseId") Long courseId);
 }
