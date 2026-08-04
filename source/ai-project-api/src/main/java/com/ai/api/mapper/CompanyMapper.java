@@ -20,6 +20,7 @@ public interface CompanyMapper {
     @BeanMapping(ignoreByDefault = true)
     @Mapping(source = "name", target = "name")
     @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "status", target = "status")
     void updateEntityFromForm(UpdateCompanyForm form, @MappingTarget Company company);
 
     @BeanMapping(ignoreByDefault = true)
