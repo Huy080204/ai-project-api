@@ -19,8 +19,7 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
 
     @Modifying(clearAutomatically = true)
     @Transactional
-    @Query(value = "UPDATE db_course SET total_timeline = COALESCE(total_timeline, 0) + :delta WHERE id = :courseId",
-            nativeQuery = true)
+    @Query("UPDATE Course c SET c.totalTimeline = COALESCE(c.totalTimeline, 0) + :delta WHERE c.id = :courseId")
     void updateTotalTimelineByDelta(@Param("courseId") Long courseId, @Param("delta") Integer delta);
 
     // cs.state = 1 -> AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT
