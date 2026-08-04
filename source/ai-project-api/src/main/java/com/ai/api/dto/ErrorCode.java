@@ -71,6 +71,7 @@ public class ErrorCode {
      * Syllabus error code
      */
     public static final String SYLLABUS_ERROR_NOT_FOUND = "ERROR-SYLLABUS-000";
+    public static final String SYLLABUS_ERROR_UNABLE_DELETE = "ERROR-SYLLABUS-001";
 
     /**
      * Rating error code

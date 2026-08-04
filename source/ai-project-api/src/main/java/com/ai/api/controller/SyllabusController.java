@@ -84,11 +84,10 @@ public class SyllabusController extends ABasicController {
             chapter.setTimeline(chapter.getTimeline() + syllabus.getTimeline());
             syllabusRepository.save(chapter);
 
-            syllabusRepository.save(syllabus);
             courseRepository.updateTotalTimelineByDelta(createSyllabusForm.getCourseId(), syllabus.getTimeline());
-        } else {
-            syllabusRepository.save(syllabus);
         }
+
+        syllabusRepository.save(syllabus);
         return makeSuccessResponse("Create syllabus success");
     }
 
