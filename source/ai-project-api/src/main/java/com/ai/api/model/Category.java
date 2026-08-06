@@ -29,4 +29,8 @@ public class Category extends Auditable<String> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
+
+    private Integer kind;
+
+    private Integer ordering = 0;
 }
