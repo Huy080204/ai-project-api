@@ -1,6 +1,7 @@
 package com.ai.api.mapper;
 
 import com.ai.api.dto.category.CategoryDto;
+import com.ai.api.dto.category.CategoryTreeDto;
 import com.ai.api.form.category.CreateCategoryForm;
 import com.ai.api.form.category.UpdateCategoryForm;
 import com.ai.api.model.Category;
@@ -22,6 +23,7 @@ public interface CategoryMapper {
     @Mapping(source = "name", target = "name")
     @Mapping(source = "description", target = "description")
     @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "kind", target = "kind")
     @BeanMapping(ignoreByDefault = true)
     @Named("fromCreateCategoryFormToEntity")
     Category fromCreateCategoryFormToEntity(CreateCategoryForm createCategoryForm);
@@ -29,6 +31,7 @@ public interface CategoryMapper {
     @Mapping(source = "name", target = "name")
     @Mapping(source = "description", target = "description")
     @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "kind", target = "kind")
     @BeanMapping(ignoreByDefault = true)
     void updateEntityFromForm(UpdateCategoryForm updateCategoryForm, @MappingTarget Category category);
 
@@ -37,6 +40,8 @@ public interface CategoryMapper {
     @Mapping(source = "description", target = "description")
     @Mapping(source = "avatar", target = "avatar")
     @Mapping(source = "parent.id", target = "parentId")
+    @Mapping(source = "kind", target = "kind")
+    @Mapping(source = "ordering", target = "ordering")
     @Mapping(source = "createdDate", target = "createdDate")
     @Mapping(source = "modifiedDate", target = "modifiedDate")
     @Mapping(source = "status", target = "status")
@@ -47,4 +52,22 @@ public interface CategoryMapper {
     @IterableMapping(elementTargetType = CategoryDto.class, qualifiedByName = "fromEntityToCategoryDto")
     @Named("fromEntityToCategoryDtoList")
     List<CategoryDto> fromEntityToCategoryDtoList(List<Category> categories);
+
+    @Mapping(source = "id", target = "id")
+    @Mapping(source = "name", target = "name")
+    @Mapping(source = "description", target = "description")
+    @Mapping(source = "avatar", target = "avatar")
+    @Mapping(source = "parent.id", target = "parentId")
+    @Mapping(source = "kind", target = "kind")
+    @Mapping(source = "ordering", target = "ordering")
+    @Mapping(source = "createdDate", target = "createdDate")
+    @Mapping(source = "modifiedDate", target = "modifiedDate")
+    @Mapping(source = "status", target = "status")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToCategoryTreeDto")
+    CategoryTreeDto fromEntityToCategoryTreeDto(Category category);
+
+    @IterableMapping(elementTargetType = CategoryTreeDto.class, qualifiedByName = "fromEntityToCategoryTreeDto")
+    @Named("fromEntityToCategoryTreeDtoList")
+    List<CategoryTreeDto> fromEntityToCategoryTreeDtoList(List<Category> categories);
 }

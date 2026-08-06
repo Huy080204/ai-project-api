@@ -18,6 +18,8 @@ public class CategoryCriteria implements Serializable {
     private String name;
     private Long parentId;
     private Integer status;
+    private Integer kind;
+    private Boolean isParent;
 
     public Specification<Category> getCriteria() {
         return new Specification<Category>() {
@@ -37,6 +39,16 @@ public class CategoryCriteria implements Serializable {
                 }
                 if (getStatus() != null) {
                     predicates.add(cb.equal(root.get("status"), getStatus()));
+                }
+                if (getKind() != null) {
+                    predicates.add(cb.equal(root.get("kind"), getKind()));
+                }
+                if (getIsParent() != null) {
+                    if (getIsParent()) {
+                        predicates.add(cb.isNull(root.get("parent")));
+                    } else {
+                        predicates.add(cb.isNotNull(root.get("parent")));
+                    }
                 }
                 return cb.and(predicates.toArray(new Predicate[predicates.size()]));
             }

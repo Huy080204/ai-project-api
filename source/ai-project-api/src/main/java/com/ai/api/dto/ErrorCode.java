@@ -111,6 +111,7 @@ public class ErrorCode {
     public static final String CATEGORY_ERROR_PARENT_NOT_FOUND = "ERROR-CATEGORY-002";
     public static final String CATEGORY_ERROR_INVALID_PARENT = "ERROR-CATEGORY-003";
     public static final String CATEGORY_ERROR_HAS_CHILDREN = "ERROR-CATEGORY-004";
+    public static final String CATEGORY_ERROR_PARENT_NOT_ROOT = "ERROR-CATEGORY-005";
 
     /**
      * Tag error code

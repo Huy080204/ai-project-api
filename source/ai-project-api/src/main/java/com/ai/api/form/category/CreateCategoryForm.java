@@ -25,4 +25,7 @@ public class CreateCategoryForm {
     @JsonDeserialize(using = StringToLongDeserializer.class)
     @Schema(name = "parentId")
     private Long parentId;
+
+    @Schema(name = "kind")
+    private Integer kind;
 }

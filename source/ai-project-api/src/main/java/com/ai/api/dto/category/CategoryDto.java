@@ -23,4 +23,10 @@ public class CategoryDto extends ABasicAdminDto {
     @JsonSerialize(using = LongToStringIfWebSerializer.class)
     @Schema(name = "parentId")
     private Long parentId;
+
+    @Schema(name = "kind")
+    private Integer kind;
+
+    @Schema(name = "ordering")
+    private Integer ordering;
 }
