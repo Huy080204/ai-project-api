@@ -74,7 +74,7 @@ public class TagController extends ABasicController {
         return makeSuccessResponse("Update tag success");
     }
 
-    @DeleteMapping(value = "/delete/{id}")
+    @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_D')")
     @Transactional
     public ApiMessageDto<Void> delete(@PathVariable Long id) {
