@@ -102,4 +102,13 @@ public class ErrorCode {
     public static final String REGISTRATION_ERROR_CLASSROOM_NOT_ACTIVE = "ERROR-REGISTRATION-001";
     public static final String REGISTRATION_ERROR_EMAIL_EXIST = "ERROR-REGISTRATION-002";
     public static final String REGISTRATION_ERROR_PHONE_EXIST = "ERROR-REGISTRATION-003";
+
+    /**
+     * Category error code
+     */
+    public static final String CATEGORY_ERROR_NAME_EXIST = "ERROR-CATEGORY-000";
+    public static final String CATEGORY_ERROR_NOT_FOUND = "ERROR-CATEGORY-001";
+    public static final String CATEGORY_ERROR_PARENT_NOT_FOUND = "ERROR-CATEGORY-002";
+    public static final String CATEGORY_ERROR_INVALID_PARENT = "ERROR-CATEGORY-003";
+    public static final String CATEGORY_ERROR_HAS_CHILDREN = "ERROR-CATEGORY-004";
 }

@@ -129,6 +129,9 @@ public class ClassroomStudentController extends ABasicController {
     public ApiMessageDto<Void> delete(@PathVariable Long id) {
         ClassroomStudent classroomStudent = classroomStudentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom student not found", ErrorCode.CLASSROOM_STUDENT_ERROR_NOT_FOUND));
+        if (AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT.equals(classroomStudent.getState())) {
+            throw new BadRequestException("Unable to delete classroom student that is accepted", ErrorCode.CLASSROOM_STUDENT_ERROR_UNABLE_DELETE);
+        }
         classroomStudentRepository.deleteById(id);
         return makeSuccessResponse("Delete classroom student success");
     }
