@@ -45,7 +45,7 @@ public class TagController extends ABasicController {
     @Autowired
     private TagMapper tagMapper;
 
-    @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_C')")
     @Transactional
     public ApiMessageDto<Void> create(@Valid @RequestBody CreateTagForm createTagForm, BindingResult bindingResult) {
@@ -57,11 +57,11 @@ public class TagController extends ABasicController {
         return makeSuccessResponse("Create tag success");
     }
 
-    @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_U')")
     @Transactional
-    public ApiMessageDto<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateTagForm updateTagForm, BindingResult bindingResult) {
-        Tag tag = tagRepository.findById(id)
+    public ApiMessageDto<Void> update(@Valid @RequestBody UpdateTagForm updateTagForm, BindingResult bindingResult) {
+        Tag tag = tagRepository.findById(updateTagForm.getId())
                 .orElseThrow(() -> new NotFoundException("Not found tag!", ErrorCode.TAG_ERROR_NOT_FOUND));
 
         if (!tag.getName().equalsIgnoreCase(updateTagForm.getName())
@@ -74,7 +74,7 @@ public class TagController extends ABasicController {
         return makeSuccessResponse("Update tag success");
     }
 
-    @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping(value = "/delete/{id}")
     @PreAuthorize("hasRole('TAG_D')")
     @Transactional
     public ApiMessageDto<Void> delete(@PathVariable Long id) {
@@ -84,7 +84,7 @@ public class TagController extends ABasicController {
         return makeSuccessResponse("Delete tag success");
     }
 
-    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/get/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_V')")
     public ApiMessageDto<TagDto> get(@PathVariable Long id) {
         Tag tag = tagRepository.findById(id)
@@ -92,7 +92,7 @@ public class TagController extends ABasicController {
         return makeSuccessResponse(tagMapper.fromEntityToTagDto(tag), "Get tag success");
     }
 
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_L')")
     public ApiMessageDto<ResponseListDto<List<TagDto>>> list(TagCriteria tagCriteria, Pageable pageable) {
         Page<Tag> page = tagRepository.findAll(tagCriteria.getCriteria(), pageable);
