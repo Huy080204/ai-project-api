@@ -77,13 +77,13 @@ public class SyllabusController extends ABasicController {
                 throw new BadRequestException("Timeline is required for lesson");
             }
             Syllabus chapter = syllabusRepository.findTopByCourseIdAndKindOrderByOrderingDesc(
-                            createSyllabusForm.getCourseId(), AIConstant.SYLLABUS_KIND_CHAPTER)
+                    createSyllabusForm.getCourseId(), AIConstant.SYLLABUS_KIND_CHAPTER)
                     .orElseThrow(() -> new BadRequestException(
                             "Course must have at least one chapter before adding a lesson"));
             syllabus.setTimeline(createSyllabusForm.getTimeline());
             chapter.setTimeline(chapter.getTimeline() + syllabus.getTimeline());
             syllabusRepository.save(chapter);
-
+            
             courseRepository.updateTotalTimelineByDelta(createSyllabusForm.getCourseId(), syllabus.getTimeline());
         }
 
@@ -141,7 +141,7 @@ public class SyllabusController extends ABasicController {
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SYL_D')")
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id,
-                                      @RequestParam(value = "chapterId", required = false) Long chapterId) {
+                                       @RequestParam(value = "chapterId", required = false) Long chapterId) {
         Syllabus syllabus = syllabusRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
         Long courseId = syllabus.getCourse().getId();
