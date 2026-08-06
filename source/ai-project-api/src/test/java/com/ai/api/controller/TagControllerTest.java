@@ -69,7 +69,7 @@ class TagControllerTest {
         tag.setName("Java");
         when(tagRepository.findById(1L)).thenReturn(Optional.of(tag));
 
-        ApiMessageDto<Void> result = tagController.update(1L, form, bindingResult);
+        ApiMessageDto<Void> result = tagController.update(form, bindingResult);
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Update tag success");
@@ -86,7 +86,7 @@ class TagControllerTest {
         when(tagRepository.findById(1L)).thenReturn(Optional.of(tag));
         when(tagRepository.existsByNameIgnoreCase("Python")).thenReturn(true);
 
-        assertThatThrownBy(() -> tagController.update(1L, form, bindingResult))
+        assertThatThrownBy(() -> tagController.update(form, bindingResult))
                 .isInstanceOf(BadRequestException.class)
                 .hasFieldOrPropertyWithValue("code", ErrorCode.TAG_ERROR_IS_EXISTED);
     }
@@ -98,7 +98,7 @@ class TagControllerTest {
         form.setName("Java");
         when(tagRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tagController.update(1L, form, bindingResult))
+        assertThatThrownBy(() -> tagController.update(form, bindingResult))
                 .isInstanceOf(NotFoundException.class)
                 .hasFieldOrPropertyWithValue("code", ErrorCode.TAG_ERROR_NOT_FOUND);
     }
