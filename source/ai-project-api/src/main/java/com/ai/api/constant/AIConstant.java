@@ -43,6 +43,9 @@ public class AIConstant {
     public static final Integer CLASSROOM_STUDENT_STATE_ACCEPT = 1;
     public static final Integer CLASSROOM_STUDENT_STATE_REJECT = 2;
 
+    public static final int TAG_NAME_MAX_LENGTH = 100;
+    public static final int TAG_COLOR_CODE_MAX_LENGTH = 7;
+
     private AIConstant() {
         throw new IllegalStateException("Utility class");
     }

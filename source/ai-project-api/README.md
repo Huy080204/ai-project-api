@@ -1,4 +1,4 @@
-# User-service.
+# User-service
 This is a service reserved for authentication and authorization based on Oauth2 protocol.
 
 ## Tech stack
