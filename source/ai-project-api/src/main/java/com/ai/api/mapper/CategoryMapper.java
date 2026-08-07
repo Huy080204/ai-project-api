@@ -70,4 +70,14 @@ public interface CategoryMapper {
     @IterableMapping(elementTargetType = CategoryTreeDto.class, qualifiedByName = "fromEntityToCategoryTreeDto")
     @Named("fromEntityToCategoryTreeDtoList")
     List<CategoryTreeDto> fromEntityToCategoryTreeDtoList(List<Category> categories);
+
+    @Mapping(source = "id", target = "id")
+    @Mapping(source = "name", target = "name")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToCategoryAutoCompleteDto")
+    CategoryDto fromEntityToCategoryAutoCompleteDto(Category category);
+
+    @IterableMapping(elementTargetType = CategoryDto.class, qualifiedByName = "fromEntityToCategoryAutoCompleteDto")
+    @Named("fromEntityToCategoryAutoCompleteDtoList")
+    List<CategoryDto> fromEntityToCategoryAutoCompleteDtoList(List<Category> categories);
 }
