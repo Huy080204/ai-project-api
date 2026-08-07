@@ -13,9 +13,11 @@ import com.ai.api.mapper.CategoryMapper;
 import com.ai.api.model.Category;
 import com.ai.api.model.criteria.CategoryCriteria;
 import com.ai.api.repository.CategoryRepository;
+import com.ai.api.repository.NewsRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,6 +56,9 @@ class CategoryControllerTest {
 
     @Mock
     private FileService fileService;
+
+    @Mock
+    private NewsRepository newsRepository;
 
     @InjectMocks
     private CategoryController categoryController;
@@ -512,5 +517,41 @@ class CategoryControllerTest {
         assertThatThrownBy(() -> categoryController.updateOrdering(Arrays.asList(form1, form2)))
                 .isInstanceOf(NotFoundException.class);
         verify(categoryRepository, never()).saveAll(anyList());
+    }
+
+    // -------------------------------------------------------- cascade delete news
+
+    @Test
+    void shouldCascadeDeleteNewsWhenDeletingRootAndChildCategories() {
+        // Arrange (FR-009 category / FR-018 news: cascade delete news for root + cascaded child)
+        Category root = new Category();
+        root.setId(1L);
+        root.setName("Root");
+
+        Category child = new Category();
+        child.setId(2L);
+        child.setName("Child");
+        child.setParent(root);
+
+        List<Long> categoryIds = Arrays.asList(1L, 2L);
+        List<String> newsAvatars = Arrays.asList("/root-news-avatar.png", "/child-news-avatar.png");
+
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(root));
+        when(categoryRepository.findByParentIdIn(Collections.singletonList(1L)))
+                .thenReturn(Collections.singletonList(child));
+        when(newsRepository.findAvatarsByCategoryIdIn(categoryIds)).thenReturn(newsAvatars);
+
+        // Act
+        ApiMessageDto<Void> result = categoryController.delete(1L);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(fileService, times(1)).deleteFiles(newsAvatars);
+        verify(newsRepository, times(1)).deleteAllByCategoryIdIn(categoryIds);
+
+        InOrder inOrder = inOrder(fileService, newsRepository, categoryRepository);
+        inOrder.verify(fileService).deleteFiles(newsAvatars);
+        inOrder.verify(newsRepository).deleteAllByCategoryIdIn(categoryIds);
+        inOrder.verify(categoryRepository).deleteById(1L);
     }
 }
