@@ -14,6 +14,7 @@ import com.ai.api.mapper.CategoryMapper;
 import com.ai.api.model.Category;
 import com.ai.api.model.criteria.CategoryCriteria;
 import com.ai.api.repository.CategoryRepository;
+import com.ai.api.repository.NewsRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -56,6 +57,9 @@ public class CategoryController extends ABasicController {
 
     @Autowired
     private FileService fileService;
+
+    @Autowired
+    private NewsRepository newsRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -127,6 +131,13 @@ public class CategoryController extends ABasicController {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found", ErrorCode.CATEGORY_ERROR_NOT_FOUND));
         List<Category> children = categoryRepository.findByParentIdIn(Collections.singletonList(id));
+        List<Long> categoryIdsToDelete = new ArrayList<>();
+        categoryIdsToDelete.add(id);
+        for (Category child : children) {
+            categoryIdsToDelete.add(child.getId());
+        }
+        fileService.deleteFiles(newsRepository.findAvatarsByCategoryIdIn(categoryIdsToDelete));
+        newsRepository.deleteAllByCategoryIdIn(categoryIdsToDelete);
         for (Category child : children) {
             if (StringUtils.isNoneBlank(child.getAvatar())) {
                 fileService.deleteFile(child.getAvatar());

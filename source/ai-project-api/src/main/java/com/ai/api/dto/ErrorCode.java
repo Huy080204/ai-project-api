@@ -125,4 +125,10 @@ public class ErrorCode {
     public static final String VOUCHER_ERROR_NOT_FOUND = "ERROR-VOUCHER-000";
     public static final String VOUCHER_ERROR_CODE_EXISTED = "ERROR-VOUCHER-001";
     public static final String VOUCHER_ERROR_ALREADY_DONE = "ERROR-VOUCHER-002";
+
+    /**
+     * News error code
+     */
+    public static final String NEWS_ERROR_NOT_FOUND = "ERROR-NEWS-000";
+    public static final String NEWS_ERROR_CATEGORY_NOT_FOUND = "ERROR-NEWS-001";
 }
