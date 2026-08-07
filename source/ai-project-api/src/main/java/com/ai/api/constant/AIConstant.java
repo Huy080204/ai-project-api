@@ -46,6 +46,13 @@ public class AIConstant {
     public static final int TAG_NAME_MAX_LENGTH = 100;
     public static final int TAG_COLOR_CODE_MAX_LENGTH = 7;
 
+    public static final Integer VOUCHER_TYPE_PERCENT = 1;
+    public static final Integer VOUCHER_TYPE_FIXED_AMOUNT = 2;
+
+    public static final Integer VOUCHER_STATE_PENDING = 0;
+    public static final Integer VOUCHER_STATE_ACTIVE = 1;
+    public static final Integer VOUCHER_STATE_DONE = 2;
+
     private AIConstant() {
         throw new IllegalStateException("Utility class");
     }

@@ -118,4 +118,11 @@ public class ErrorCode {
      */
     public static final String TAG_ERROR_NOT_FOUND = "ERROR-TAG-000";
     public static final String TAG_ERROR_IS_EXISTED = "ERROR-TAG-001";
+
+    /**
+     * Voucher error code
+     */
+    public static final String VOUCHER_ERROR_NOT_FOUND = "ERROR-VOUCHER-000";
+    public static final String VOUCHER_ERROR_CODE_EXISTED = "ERROR-VOUCHER-001";
+    public static final String VOUCHER_ERROR_ALREADY_DONE = "ERROR-VOUCHER-002";
 }
