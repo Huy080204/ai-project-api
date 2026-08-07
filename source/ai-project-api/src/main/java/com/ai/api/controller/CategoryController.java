@@ -1,5 +1,6 @@
 package com.ai.api.controller;
 
+import com.ai.api.constant.AIConstant;
 import com.ai.api.dto.ApiMessageDto;
 import com.ai.api.dto.ErrorCode;
 import com.ai.api.dto.ResponseListDto;
@@ -20,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -169,6 +171,15 @@ public class CategoryController extends ABasicController {
             tree.setChildren(categoryMapper.fromEntityToCategoryDtoList(children));
         }
         return trees;
+    }
+
+    @GetMapping(value = "/auto-complete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('CAT_L')")
+    public ApiMessageDto<ResponseListDto<List<CategoryDto>>> autoComplete(CategoryCriteria criteria) {
+        criteria.setStatus(AIConstant.STATUS_ACTIVE);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Category> categories = categoryRepository.findAll(criteria.getCriteria(), pageable);
+        return makeSuccessResponse(makeResponseListDto(categories, categoryMapper::fromEntityToCategoryAutoCompleteDtoList), "Get auto complete categories success");
     }
 
     @Transactional
