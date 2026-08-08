@@ -125,6 +125,7 @@ public class ErrorCode {
     public static final String VOUCHER_ERROR_NOT_FOUND = "ERROR-VOUCHER-000";
     public static final String VOUCHER_ERROR_CODE_EXISTED = "ERROR-VOUCHER-001";
     public static final String VOUCHER_ERROR_ALREADY_DONE = "ERROR-VOUCHER-002";
+    public static final String VOUCHER_ERROR_INVALID = "ERROR-VOUCHER-003";
 
     /**
      * News error code

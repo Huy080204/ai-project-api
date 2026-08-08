@@ -20,12 +20,14 @@ import com.ai.api.model.Course;
 import com.ai.api.model.Registration;
 import com.ai.api.model.Student;
 import com.ai.api.model.Syllabus;
+import com.ai.api.model.Voucher;
 import com.ai.api.model.criteria.RegistrationCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.repository.SyllabusRepository;
+import com.ai.api.service.VoucherService;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +41,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.validation.BindingResult;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -87,6 +90,9 @@ class RegistrationControllerTest {
 
     @Mock
     private UserServiceImpl userService;
+
+    @Mock
+    private VoucherService voucherService;
 
     @InjectMocks
     private RegistrationController registrationController;
@@ -277,6 +283,82 @@ class RegistrationControllerTest {
         assertThatThrownBy(() -> registrationController.create(form, bindingResult))
                 .isInstanceOfSatisfying(BadRequestException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.REGISTRATION_ERROR_PHONE_EXIST));
+        verify(registrationRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldApplyVoucherWhenCreatingWithVoucherId() {
+        // Arrange
+        CreateRegistrationForm form = createForm(5L, "john@example.com", "0123456789");
+        form.setVoucherId(3L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = activeClassroom(5L);
+        classroom.setPrice(new BigDecimal("2000000"));
+        Registration registration = new Registration();
+        Voucher voucher = new Voucher();
+        voucher.setId(3L);
+        when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
+        when(registrationRepository.existsByClassroomIdAndEmail(5L, "john@example.com")).thenReturn(false);
+        when(registrationRepository.existsByClassroomIdAndPhone(5L, "0123456789")).thenReturn(false);
+        when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
+        when(voucherService.validateAndApplyVoucher(3L, new BigDecimal("2000000"))).thenReturn(voucher);
+        when(voucherService.calculateDiscountAmount(voucher, new BigDecimal("2000000"))).thenReturn(new BigDecimal("200000.00"));
+
+        // Act
+        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(registration.getVoucher()).isEqualTo(voucher);
+        assertThat(registration.getDiscountAmount()).isEqualTo(new BigDecimal("200000.00"));
+        verify(registrationRepository).save(registration);
+    }
+
+    @Test
+    void shouldNotApplyVoucherWhenCreateVoucherIdOmitted() {
+        // Arrange
+        CreateRegistrationForm form = createForm(5L, "john@example.com", "0123456789");
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = activeClassroom(5L);
+        Registration registration = new Registration();
+
+        when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
+        when(registrationRepository.existsByClassroomIdAndEmail(5L, "john@example.com")).thenReturn(false);
+        when(registrationRepository.existsByClassroomIdAndPhone(5L, "0123456789")).thenReturn(false);
+        when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
+
+        // Act
+        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(registration.getVoucher()).isNull();
+        assertThat(registration.getDiscountAmount()).isNull();
+        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
+        verify(registrationRepository).save(registration);
+    }
+
+    @Test
+    void shouldPropagateExceptionWhenCreateVoucherInvalid() {
+        // Arrange
+        CreateRegistrationForm form = createForm(5L, "john@example.com", "0123456789");
+        form.setVoucherId(4L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = activeClassroom(5L);
+        classroom.setPrice(new BigDecimal("2000000"));
+        Registration registration = new Registration();
+
+        when(classroomRepository.findById(5L)).thenReturn(Optional.of(classroom));
+        when(registrationRepository.existsByClassroomIdAndEmail(5L, "john@example.com")).thenReturn(false);
+        when(registrationRepository.existsByClassroomIdAndPhone(5L, "0123456789")).thenReturn(false);
+        when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
+        when(voucherService.validateAndApplyVoucher(4L, new BigDecimal("2000000")))
+                .thenThrow(new BadRequestException("Voucher usage limit reached", ErrorCode.VOUCHER_ERROR_INVALID));
+
+        // Act + Assert
+        assertThatThrownBy(() -> registrationController.create(form, bindingResult))
+                .isInstanceOfSatisfying(BadRequestException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.VOUCHER_ERROR_INVALID));
         verify(registrationRepository, never()).save(any());
     }
 

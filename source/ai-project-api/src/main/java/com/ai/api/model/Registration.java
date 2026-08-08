@@ -12,6 +12,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = DatabaseConstant.PREFIX_TABLE + "registration")
@@ -31,4 +32,11 @@ public class Registration extends Auditable<String> {
 
     @Column(name = "message", columnDefinition = "TEXT")
     private String message;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_id")
+    private Voucher voucher;
+
+    @Column(name = "discount_amount", precision = 10, scale = 2)
+    private BigDecimal discountAmount;
 }
