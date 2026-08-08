@@ -16,6 +16,7 @@ import com.ai.api.constant.AIConstant;
 import com.ai.api.model.ClassroomStudent;
 import com.ai.api.model.Student;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 @Data
@@ -30,6 +31,7 @@ public class StudentCriteria implements Serializable {
     private Long groupId;
     private Long ignoreClassroomId;
 
+    @Schema(hidden = true)
     public Specification<Student> getCriteria() {
         return new Specification<Student>() {
             private static final long serialVersionUID = 1L;

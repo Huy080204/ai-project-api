@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Voucher;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -24,6 +25,7 @@ public class VoucherCriteria implements Serializable {
     private Integer type;
     private Integer state;
 
+    @Schema(hidden = true)
     public Specification<Voucher> getCriteria() {
         return new Specification<Voucher>() {
             private static final long serialVersionUID = 1L;

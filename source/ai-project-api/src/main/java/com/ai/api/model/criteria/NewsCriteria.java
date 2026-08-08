@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.News;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -19,6 +20,7 @@ public class NewsCriteria implements Serializable {
     private Long categoryId;
     private Integer status;
 
+    @Schema(hidden = true)
     public Specification<News> getCriteria() {
         return new Specification<News>() {
             private static final long serialVersionUID = 1L;

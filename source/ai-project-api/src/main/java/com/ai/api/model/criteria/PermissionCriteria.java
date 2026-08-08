@@ -2,6 +2,7 @@ package com.ai.api.model.criteria;
 
 import com.ai.api.model.Group;
 import com.ai.api.model.Permission;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -14,6 +15,7 @@ import java.util.List;
 public class PermissionCriteria implements Serializable {
     private Integer groupKind;
 
+    @Schema(hidden = true)
     public Specification<Permission> getSpecification() {
         return new Specification<Permission>() {
             private static final long serialVersionUID = 1L;

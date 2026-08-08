@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Assignment;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -23,6 +24,7 @@ public class AssignmentCriteria {
     private Integer status;
     private Long syllabusId;
 
+    @Schema(hidden = true)
     public Specification<Assignment> getCriteria() {
         return new Specification<Assignment>() {
             private static final long serialVersionUID = 1L;

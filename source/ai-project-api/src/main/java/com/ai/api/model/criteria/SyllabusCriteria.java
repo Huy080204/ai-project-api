@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Syllabus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -20,6 +21,7 @@ public class SyllabusCriteria implements Serializable {
     private String name;
     private Integer status;
 
+    @Schema(hidden = true)
     public Specification<Syllabus> getSpecification() {
         return new Specification<Syllabus>() {
             private static final long serialVersionUID = 1L;

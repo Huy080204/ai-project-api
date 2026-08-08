@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Category;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -21,6 +22,7 @@ public class CategoryCriteria implements Serializable {
     private Integer kind;
     private Boolean isParent;
 
+    @Schema(hidden = true)
     public Specification<Category> getCriteria() {
         return new Specification<Category>() {
             private static final long serialVersionUID = 1L;
