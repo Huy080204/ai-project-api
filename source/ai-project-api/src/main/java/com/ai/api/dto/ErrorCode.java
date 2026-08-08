@@ -131,4 +131,10 @@ public class ErrorCode {
      */
     public static final String NEWS_ERROR_NOT_FOUND = "ERROR-NEWS-000";
     public static final String NEWS_ERROR_CATEGORY_NOT_FOUND = "ERROR-NEWS-001";
+
+    /**
+     * Assignment error code
+     */
+    public static final String ASSIGNMENT_ERROR_NOT_FOUND = "ERROR-ASSIGNMENT-000";
+    public static final String ASSIGNMENT_ERROR_UNABLE_UPDATE = "ERROR-ASSIGNMENT-001";
 }

@@ -12,7 +12,9 @@ import com.ai.api.form.course.UpdateCourseForm;
 import com.ai.api.mapper.CourseMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.criteria.CourseCriteria;
+import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
+import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.RegistrationRepository;
@@ -74,7 +76,13 @@ class CourseControllerTest {
     private ClassroomRepository classroomRepository;
 
     @Mock
+    private ClassroomStudentRepository classroomStudentRepository;
+
+    @Mock
     private SyllabusRepository syllabusRepository;
+
+    @Mock
+    private AssignmentRepository assignmentRepository;
 
     @Mock
     private RegistrationRepository registrationRepository;
@@ -358,6 +366,31 @@ class CourseControllerTest {
         verify(fileService).deleteFiles(filesCaptor.capture());
         assertThat(filesCaptor.getValue()).isEmpty();
         verify(courseRepository).deleteById(1L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDeleteAssignmentChildrenBeforeDeletingCourseWithAssignmentDescendants() {
+        // Arrange - regression test (FR-007): deleting a Course with Syllabus→Assignment
+        // descendants asserts that assignmentRepository.deleteAllBySyllabusCourseId is called
+        // BEFORE syllabusRepository.deleteAllByCourseId. The file attachment URLs collection and
+        // batched deletion is deferred to T005 when controller adds the aggregation logic.
+        Course course = new Course();
+        course.setId(1L);
+        course.setAvatar("/avatar/course.png");
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusRepository.findAvatarsByCourseId(1L))
+                .thenReturn(Arrays.asList("/avatar/chapter1.png", "/avatar/lesson1.png"));
+        when(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(1L))
+                .thenReturn(Arrays.asList("/files/assignment1.pdf", "/files/assignment2.pdf"));
+
+        // Act
+        courseController.delete(1L);
+
+        // Assert - verify cascade delete order: assignments deleted before syllabuses
+        InOrder inOrder = inOrder(assignmentRepository, syllabusRepository);
+        inOrder.verify(assignmentRepository).deleteAllBySyllabusCourseId(1L);
+        inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
     }
 
     // ------------------------------------------------------------ auto-complete
