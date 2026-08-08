@@ -138,4 +138,11 @@ public class ErrorCode {
      */
     public static final String ASSIGNMENT_ERROR_NOT_FOUND = "ERROR-ASSIGNMENT-000";
     public static final String ASSIGNMENT_ERROR_UNABLE_UPDATE = "ERROR-ASSIGNMENT-001";
+
+    /**
+     * Submission error code
+     */
+    public static final String SUBMISSION_ERROR_NOT_FOUND = "ERROR-SUBMISSION-000";
+    public static final String SUBMISSION_ERROR_ASSIGNMENT_CLOSED = "ERROR-SUBMISSION-001";
+    public static final String SUBMISSION_ERROR_ALREADY_GRADED = "ERROR-SUBMISSION-002";
 }

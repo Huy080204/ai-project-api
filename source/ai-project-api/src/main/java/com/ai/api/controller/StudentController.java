@@ -19,6 +19,7 @@ import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.StudentRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -41,6 +42,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -65,6 +67,8 @@ public class StudentController extends ABasicController {
     private ClassroomStudentRepository classroomStudentRepository;
     @Autowired
     private RatingRepository ratingRepository;
+    @Autowired
+    private SubmissionRepository submissionRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -176,13 +180,19 @@ public class StudentController extends ABasicController {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("[Student] Student not found", ErrorCode.STUDENT_ERROR_NOT_FOUND));
 
+        List<String> filesToDelete = new ArrayList<>();
         String avatarPath = student.getAccount().getAvatarPath();
         if (StringUtils.isNoneBlank(avatarPath)) {
-            fileService.deleteFile(avatarPath);
+            filesToDelete.add(avatarPath);
+        }
+        filesToDelete.addAll(submissionRepository.findFileUrlsByStudentId(id));
+        if (!filesToDelete.isEmpty()) {
+            fileService.deleteFiles(filesToDelete);
         }
 
         classroomStudentRepository.deleteAllByStudentId(id);
         ratingRepository.deleteAllByStudentId(id);
+        submissionRepository.deleteAllByStudentId(id);
 
         student.setStatus(AIConstant.STATUS_DELETE);
         studentRepository.save(student);

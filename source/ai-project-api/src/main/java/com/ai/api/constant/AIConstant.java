@@ -57,6 +57,9 @@ public class AIConstant {
     public static final Integer ASSIGNMENT_STATE_PUBLISHED = 1;
     public static final Integer ASSIGNMENT_STATE_CLOSED = 2;
 
+    public static final Integer SUBMISSION_STATE_PENDING = 0;
+    public static final Integer SUBMISSION_STATE_GRADED = 1;
+
     private AIConstant() {
         throw new IllegalStateException("Utility class");
     }
