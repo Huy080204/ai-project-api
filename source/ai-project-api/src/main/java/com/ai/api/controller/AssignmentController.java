@@ -14,6 +14,7 @@ import com.ai.api.model.Assignment;
 import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.AssignmentCriteria;
 import com.ai.api.repository.AssignmentRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -52,6 +54,9 @@ public class AssignmentController extends ABasicController {
 
     @Autowired
     private FileService fileService;
+
+    @Autowired
+    private SubmissionRepository submissionRepository;
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ASM_C')")
@@ -112,9 +117,16 @@ public class AssignmentController extends ABasicController {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Assignment not found", ErrorCode.ASSIGNMENT_ERROR_NOT_FOUND));
 
+        List<String> filesToDelete = new ArrayList<>();
         if (assignment.getFileAttachmentUrl() != null) {
-            fileService.deleteFile(assignment.getFileAttachmentUrl());
+            filesToDelete.add(assignment.getFileAttachmentUrl());
         }
+        filesToDelete.addAll(submissionRepository.findFileUrlsByAssignmentId(id));
+        if (!filesToDelete.isEmpty()) {
+            fileService.deleteFiles(filesToDelete);
+        }
+
+        submissionRepository.deleteAllByAssignmentId(id);
 
         assignmentRepository.deleteById(id);
         return makeSuccessResponse("Delete assignment success");

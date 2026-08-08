@@ -22,10 +22,12 @@ import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.StudentRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,6 +50,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
 
 /**
  * Unit test for {@link StudentController#create}, written FIRST against the planned
@@ -76,6 +79,9 @@ class StudentControllerTest {
 
     @Mock
     private RatingRepository ratingRepository;
+
+    @Mock
+    private SubmissionRepository submissionRepository;
 
     @Mock
     private StudentMapper studentMapper;
@@ -337,7 +343,7 @@ class StudentControllerTest {
         studentController.delete(1L);
 
         // Assert
-        verify(fileService).deleteFile("/avatar/to-delete.png");
+        verify(fileService).deleteFiles(Collections.singletonList("/avatar/to-delete.png"));
         verify(classroomStudentRepository).deleteAllByStudentId(1L);
         verify(ratingRepository).deleteAllByStudentId(1L);
 
@@ -356,6 +362,55 @@ class StudentControllerTest {
 
         // Assert - still only the one deleteFile call from the non-blank case above
         verify(fileService, never()).deleteFile(null);
+    }
+
+    @Test
+    void shouldCascadeDeleteSubmissionsBeforeSoftDeletingStudent() {
+        Account account = new Account();
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+
+        studentController.delete(1L);
+
+        InOrder order = inOrder(submissionRepository, studentRepository);
+        order.verify(submissionRepository).deleteAllByStudentId(1L);
+        order.verify(studentRepository).save(student);
+    }
+
+    @Test
+    void shouldCleanUpSubmissionFilesBeforeCascadeDeletingSubmissions() {
+        Account account = new Account();
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(submissionRepository.findFileUrlsByStudentId(1L))
+                .thenReturn(Collections.singletonList("submission-file.pdf"));
+
+        studentController.delete(1L);
+
+        InOrder order = inOrder(fileService, submissionRepository);
+        order.verify(fileService).deleteFiles(Collections.singletonList("submission-file.pdf"));
+        order.verify(submissionRepository).deleteAllByStudentId(1L);
+    }
+
+    @Test
+    void shouldNotCallDeleteFilesWhenNoSubmissionFileUrls() {
+        Account account = new Account();
+        Student student = new Student();
+        student.setId(1L);
+        student.setAccount(account);
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(submissionRepository.findFileUrlsByStudentId(1L)).thenReturn(Collections.emptyList());
+
+        studentController.delete(1L);
+
+        verify(fileService, never()).deleteFiles(any());
     }
 
     // --------------------------------------------------- (h) update sets new unique username (FR-003)

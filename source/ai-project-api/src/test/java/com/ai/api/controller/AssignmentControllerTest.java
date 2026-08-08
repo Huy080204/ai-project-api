@@ -14,10 +14,12 @@ import com.ai.api.model.Assignment;
 import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.AssignmentCriteria;
 import com.ai.api.repository.AssignmentRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +41,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class AssignmentControllerTest {
@@ -51,6 +54,8 @@ class AssignmentControllerTest {
     private AssignmentMapper assignmentMapper;
     @Mock
     private FileService fileService;
+    @Mock
+    private SubmissionRepository submissionRepository;
     @InjectMocks
     private AssignmentController controller;
 
@@ -215,8 +220,45 @@ class AssignmentControllerTest {
 
         controller.delete(1L);
 
-        verify(fileService, times(1)).deleteFile("old-file.pdf");
+        verify(fileService, times(1)).deleteFiles(Collections.singletonList("old-file.pdf"));
         verify(assignmentRepository).deleteById(1L);
+    }
+
+    @Test
+    void delete_whenSubmissionChildrenExist_cascadeDeletesBeforeAssignment() {
+        Assignment entity = new Assignment();
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(entity));
+
+        controller.delete(1L);
+
+        InOrder order = inOrder(submissionRepository, assignmentRepository);
+        order.verify(submissionRepository).deleteAllByAssignmentId(1L);
+        order.verify(assignmentRepository).deleteById(1L);
+    }
+
+    @Test
+    void delete_whenSubmissionsHaveFileUrls_cleansUpFilesBeforeCascadeDelete() {
+        Assignment entity = new Assignment();
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(submissionRepository.findFileUrlsByAssignmentId(1L))
+                .thenReturn(Collections.singletonList("submission-file.pdf"));
+
+        controller.delete(1L);
+
+        InOrder order = inOrder(fileService, submissionRepository);
+        order.verify(fileService).deleteFiles(Collections.singletonList("submission-file.pdf"));
+        order.verify(submissionRepository).deleteAllByAssignmentId(1L);
+    }
+
+    @Test
+    void delete_whenNoSubmissionFileUrls_doesNotCallDeleteFiles() {
+        Assignment entity = new Assignment();
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(submissionRepository.findFileUrlsByAssignmentId(1L)).thenReturn(Collections.emptyList());
+
+        controller.delete(1L);
+
+        verify(fileService, never()).deleteFiles(any());
     }
 
     @Test
