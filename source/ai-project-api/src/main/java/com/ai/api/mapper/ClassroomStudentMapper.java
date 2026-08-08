@@ -16,7 +16,7 @@ import java.util.List;
 @Mapper(componentModel = "spring",
         unmappedTargetPolicy = ReportingPolicy.IGNORE,
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
-        uses = {ClassroomMapper.class, StudentMapper.class})
+        uses = {ClassroomMapper.class, StudentMapper.class, VoucherMapper.class})
 public interface ClassroomStudentMapper {
     @BeanMapping(ignoreByDefault = true)
     ClassroomStudent fromFormToEntity(RegisterClassroomStudentForm form);
@@ -28,6 +28,8 @@ public interface ClassroomStudentMapper {
     @Mapping(source = "dateRegistration", target = "dateRegistration")
     @Mapping(source = "dateDone", target = "dateDone")
     @Mapping(source = "state", target = "state")
+    @Mapping(source = "voucher", target = "voucher", qualifiedByName = "fromEntityToVoucherDto")
+    @Mapping(source = "discountAmount", target = "discountAmount")
     @Mapping(source = "createdDate", target = "createdDate")
     @Mapping(source = "modifiedDate", target = "modifiedDate")
     @Mapping(source = "status", target = "status")

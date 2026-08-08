@@ -22,8 +22,10 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
+import com.ai.api.model.Voucher;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
+import com.ai.api.service.VoucherService;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +41,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.BindingResult;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -89,6 +92,9 @@ class ClassroomStudentControllerTest {
 
     @Mock
     private AccountRepository accountRepository;
+
+    @Mock
+    private VoucherService voucherService;
 
     @InjectMocks
     private ClassroomStudentController classroomStudentController;
@@ -236,6 +242,123 @@ class ClassroomStudentControllerTest {
                 .isInstanceOfSatisfying(BadRequestException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_STUDENT_ERROR_ALREADY_REGISTERED));
         verify(classroomStudentRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldApplyVoucherWhenRegisteringWithVoucherId() {
+        // Arrange
+        RegisterClassroomStudentForm form = registerForm(1L, 2L);
+        form.setVoucherId(3L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = new Classroom();
+        classroom.setId(1L);
+        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
+        classroom.setPrice(new BigDecimal("2000000"));
+        Student student = new Student();
+        student.setId(2L);
+        ClassroomStudent classroomStudent = new ClassroomStudent();
+        Voucher voucher = new Voucher();
+        voucher.setId(3L);
+        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
+        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
+        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
+        when(voucherService.validateAndApplyVoucher(3L, new BigDecimal("2000000"))).thenReturn(voucher);
+        when(voucherService.calculateDiscountAmount(voucher, new BigDecimal("2000000"))).thenReturn(new BigDecimal("200000.00"));
+
+        // Act
+        ApiMessageDto<Void> result = classroomStudentController.register(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(classroomStudent.getVoucher()).isEqualTo(voucher);
+        assertThat(classroomStudent.getDiscountAmount()).isEqualTo(new BigDecimal("200000.00"));
+        verify(classroomStudentRepository).save(classroomStudent);
+    }
+
+    @Test
+    void shouldNotApplyVoucherWhenVoucherIdOmitted() {
+        // Arrange
+        RegisterClassroomStudentForm form = registerForm(1L, 2L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = new Classroom();
+        classroom.setId(1L);
+        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
+        Student student = new Student();
+        student.setId(2L);
+        ClassroomStudent classroomStudent = new ClassroomStudent();
+
+        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
+        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
+        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
+
+        // Act
+        ApiMessageDto<Void> result = classroomStudentController.register(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(classroomStudent.getVoucher()).isNull();
+        assertThat(classroomStudent.getDiscountAmount()).isNull();
+        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
+        verify(classroomStudentRepository).save(classroomStudent);
+    }
+
+    @Test
+    void shouldPropagateExceptionWhenRegisterVoucherInvalid() {
+        // Arrange
+        RegisterClassroomStudentForm form = registerForm(1L, 2L);
+        form.setVoucherId(4L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = new Classroom();
+        classroom.setId(1L);
+        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
+        classroom.setPrice(new BigDecimal("2000000"));
+        Student student = new Student();
+        student.setId(2L);
+        ClassroomStudent classroomStudent = new ClassroomStudent();
+
+        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
+        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
+        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
+        when(voucherService.validateAndApplyVoucher(4L, new BigDecimal("2000000")))
+                .thenThrow(new BadRequestException("Voucher is not active", ErrorCode.VOUCHER_ERROR_INVALID));
+
+        // Act + Assert
+        assertThatThrownBy(() -> classroomStudentController.register(form, bindingResult))
+                .isInstanceOfSatisfying(BadRequestException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.VOUCHER_ERROR_INVALID));
+        verify(classroomStudentRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldUseZeroOrderValueWhenClassroomPriceNull() {
+        // Arrange
+        RegisterClassroomStudentForm form = registerForm(1L, 2L);
+        form.setVoucherId(3L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Classroom classroom = new Classroom();
+        classroom.setId(1L);
+        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
+        classroom.setPrice(null);
+        Student student = new Student();
+        student.setId(2L);
+        ClassroomStudent classroomStudent = new ClassroomStudent();
+        Voucher voucher = new Voucher();
+        voucher.setId(3L);
+        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
+        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
+        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
+        when(voucherService.validateAndApplyVoucher(3L, BigDecimal.ZERO)).thenReturn(voucher);
+        when(voucherService.calculateDiscountAmount(voucher, BigDecimal.ZERO)).thenReturn(BigDecimal.ZERO);
+
+        // Act
+        classroomStudentController.register(form, bindingResult);
+
+        // Assert
+        verify(voucherService).validateAndApplyVoucher(3L, BigDecimal.ZERO);
     }
 
     // ------------------------------------------------------------- changeState
@@ -864,5 +987,67 @@ class ClassroomStudentControllerTest {
         // Assert - reuse branch is untouched by form fullName
         verify(accountRepository, never()).save(any());
         verify(studentRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldCopyVoucherAndDiscountAmountFromRegistrationOnApprove() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
+        Voucher voucher = new Voucher();
+        voucher.setId(3L);
+        registration.setVoucher(voucher);
+        registration.setDiscountAmount(new BigDecimal("100000.00"));
+
+        Account existingAccount = new Account();
+        existingAccount.setId(20L);
+        existingAccount.setEmail("existing@example.com");
+        Student existingStudent = new Student();
+        existingStudent.setId(20L);
+        existingStudent.setAccount(existingAccount);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        ArgumentCaptor<ClassroomStudent> captor = ArgumentCaptor.forClass(ClassroomStudent.class);
+        verify(classroomStudentRepository).save(captor.capture());
+        assertThat(captor.getValue().getVoucher()).isEqualTo(voucher);
+        assertThat(captor.getValue().getDiscountAmount()).isEqualTo(new BigDecimal("100000.00"));
+        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
+    }
+
+    @Test
+    void shouldLeaveVoucherNullOnApproveWhenRegistrationHasNone() {
+        // Arrange
+        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = mock(BindingResult.class);
+        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
+
+        Account existingAccount = new Account();
+        existingAccount.setId(20L);
+        existingAccount.setEmail("existing@example.com");
+        Student existingStudent = new Student();
+        existingStudent.setId(20L);
+        existingStudent.setAccount(existingAccount);
+
+        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
+        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
+
+        // Act
+        classroomStudentController.registerFromRegistration(form, bindingResult);
+
+        // Assert
+        ArgumentCaptor<ClassroomStudent> captor = ArgumentCaptor.forClass(ClassroomStudent.class);
+        verify(classroomStudentRepository).save(captor.capture());
+        assertThat(captor.getValue().getVoucher()).isNull();
+        assertThat(captor.getValue().getDiscountAmount()).isNull();
+        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
     }
 }

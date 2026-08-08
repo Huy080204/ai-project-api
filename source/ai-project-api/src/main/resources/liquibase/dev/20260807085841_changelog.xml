@@ -1,0 +1,29 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet author="Authentication" id="1786093131790-1">
+        <addColumn tableName="db_classroom_student">
+            <column name="discount_amount" type="decimal(10, 2)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="Authentication" id="1786093131790-2">
+        <addColumn tableName="db_registration">
+            <column name="discount_amount" type="decimal(10, 2)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="Authentication" id="1786093131790-3">
+        <addColumn tableName="db_classroom_student">
+            <column name="voucher_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="Authentication" id="1786093131790-4">
+        <addColumn tableName="db_registration">
+            <column name="voucher_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="Authentication" id="1786093131790-5">
+        <addForeignKeyConstraint baseColumnNames="voucher_id" baseTableName="db_registration" constraintName="FK3eu4jp7cqgxk5ev95cpqd8asi" deferrable="false" initiallyDeferred="false" referencedColumnNames="id" referencedTableName="db_voucher" validate="true"/>
+    </changeSet>
+    <changeSet author="Authentication" id="1786093131790-6">
+        <addForeignKeyConstraint baseColumnNames="voucher_id" baseTableName="db_classroom_student" constraintName="FKgg8w8vf3funnjej0724v3b12e" deferrable="false" initiallyDeferred="false" referencedColumnNames="id" referencedTableName="db_voucher" validate="true"/>
+    </changeSet>
+</databaseChangeLog>

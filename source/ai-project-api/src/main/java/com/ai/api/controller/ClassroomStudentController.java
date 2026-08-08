@@ -17,6 +17,7 @@ import com.ai.api.model.ClassroomStudent;
 import com.ai.api.model.Group;
 import com.ai.api.model.Registration;
 import com.ai.api.model.Student;
+import com.ai.api.model.Voucher;
 import com.ai.api.model.criteria.ClassroomStudentCriteria;
 import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomRepository;
@@ -24,6 +25,7 @@ import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
+import com.ai.api.service.VoucherService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +48,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -79,6 +82,9 @@ public class ClassroomStudentController extends ABasicController {
     @Autowired
     private AccountRepository accountRepository;
 
+    @Autowired
+    private VoucherService voucherService;
+
     @Transactional
     @PostMapping(value = "/register-by-student", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_C')")
@@ -97,6 +103,13 @@ public class ClassroomStudentController extends ABasicController {
         classroomStudent.setClassroom(classroom);
         classroomStudent.setStudent(student);
         classroomStudent.setDateRegistration(new Date());
+        if (registerClassroomStudentForm.getVoucherId() != null) {
+            BigDecimal orderValue = classroom.getPrice() != null ? classroom.getPrice() : BigDecimal.ZERO;
+            Voucher voucher = voucherService.validateAndApplyVoucher(registerClassroomStudentForm.getVoucherId(), orderValue);
+            BigDecimal discountAmount = voucherService.calculateDiscountAmount(voucher, orderValue);
+            classroomStudent.setVoucher(voucher);
+            classroomStudent.setDiscountAmount(discountAmount);
+        }
         classroomStudentRepository.save(classroomStudent);
         return makeSuccessResponse("Register classroom student success");
     }
@@ -156,6 +169,8 @@ public class ClassroomStudentController extends ABasicController {
         classroomStudent.setClassroom(registration.getClassroom());
         classroomStudent.setStudent(student);
         classroomStudent.setDateRegistration(new Date());
+        classroomStudent.setVoucher(registration.getVoucher());
+        classroomStudent.setDiscountAmount(registration.getDiscountAmount());
         classroomStudentRepository.save(classroomStudent);
 
         registrationRepository.deleteById(registration.getId());

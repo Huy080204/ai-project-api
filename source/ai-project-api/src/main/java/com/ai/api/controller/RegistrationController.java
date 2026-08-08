@@ -15,12 +15,14 @@ import com.ai.api.model.Classroom;
 import com.ai.api.model.Registration;
 import com.ai.api.model.Student;
 import com.ai.api.model.Syllabus;
+import com.ai.api.model.Voucher;
 import com.ai.api.model.criteria.RegistrationCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.repository.SyllabusRepository;
+import com.ai.api.service.VoucherService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -71,6 +74,9 @@ public class RegistrationController extends ABasicController {
     @Autowired
     private SyllabusMapper syllabusMapper;
 
+    @Autowired
+    private VoucherService voucherService;
+
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     public ApiMessageDto<Void> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
@@ -97,6 +103,13 @@ public class RegistrationController extends ABasicController {
 
         Registration registration = registrationMapper.fromCreateRegistrationFormToEntity(createRegistrationForm);
         registration.setClassroom(classroom);
+        if (createRegistrationForm.getVoucherId() != null) {
+            BigDecimal orderValue = classroom.getPrice() != null ? classroom.getPrice() : BigDecimal.ZERO;
+            Voucher voucher = voucherService.validateAndApplyVoucher(createRegistrationForm.getVoucherId(), orderValue);
+            BigDecimal discountAmount = voucherService.calculateDiscountAmount(voucher, orderValue);
+            registration.setVoucher(voucher);
+            registration.setDiscountAmount(discountAmount);
+        }
         registrationRepository.save(registration);
         return makeSuccessResponse("Create registration success");
     }

@@ -35,4 +35,8 @@ public class CreateRegistrationForm {
 
     @Schema(name = "message")
     private String message;
+
+    @Schema(name = "voucherId", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    @JsonDeserialize(using = StringToLongDeserializer.class)
+    private Long voucherId;
 }

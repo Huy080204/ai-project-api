@@ -3,9 +3,12 @@ package com.ai.api.dto.registration;
 import com.ai.api.dto.ABasicAdminDto;
 import com.ai.api.dto.classroom.ClassroomDto;
 import com.ai.api.dto.student.StudentDto;
+import com.ai.api.dto.voucher.VoucherDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -23,4 +26,8 @@ public class RegistrationDto extends ABasicAdminDto {
     private String phone;
     @Schema(name = "message")
     private String message;
+    @Schema(name = "voucher")
+    private VoucherDto voucher;
+    @Schema(name = "discountAmount")
+    private BigDecimal discountAmount;
 }
