@@ -520,18 +520,19 @@ class ClassroomStudentControllerTest {
     }
 
     @Test
-    void shouldThrowBadRequestWhenDeleteClassroomStudentStateAccept() {
+    void shouldDeleteClassroomStudentSuccessfullyWhenStateAccept() {
         // Arrange
         ClassroomStudent classroomStudent = new ClassroomStudent();
         classroomStudent.setId(11L);
         classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT);
         when(classroomStudentRepository.findById(11L)).thenReturn(Optional.of(classroomStudent));
 
-        // Act + Assert
-        assertThatThrownBy(() -> classroomStudentController.delete(11L))
-                .isInstanceOfSatisfying(BadRequestException.class,
-                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_STUDENT_ERROR_UNABLE_DELETE));
-        verify(classroomStudentRepository, never()).deleteById(any());
+        // Act
+        ApiMessageDto<Void> result = classroomStudentController.delete(11L);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(classroomStudentRepository).deleteById(11L);
     }
 
     @Test
