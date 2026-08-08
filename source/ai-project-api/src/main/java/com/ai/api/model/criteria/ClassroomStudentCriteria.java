@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.ClassroomStudent;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -19,6 +20,7 @@ public class ClassroomStudentCriteria implements Serializable {
     private Long studentId;
     private Integer state;
 
+    @Schema(hidden = true)
     public Specification<ClassroomStudent> getCriteria() {
         return new Specification<ClassroomStudent>() {
             private static final long serialVersionUID = 1L;

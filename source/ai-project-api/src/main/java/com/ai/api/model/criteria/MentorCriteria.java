@@ -14,6 +14,7 @@ import org.springframework.data.jpa.domain.Specification;
 import com.ai.api.constant.AIConstant;
 import com.ai.api.model.Mentor;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 @Data
@@ -28,6 +29,7 @@ public class MentorCriteria implements Serializable {
     private Long groupId;
     private Integer status;
 
+    @Schema(hidden = true)
     public Specification<Mentor> getCriteria() {
         return new Specification<Mentor>() {
             private static final long serialVersionUID = 1L;

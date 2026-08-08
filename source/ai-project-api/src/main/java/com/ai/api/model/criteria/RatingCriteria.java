@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Rating;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -20,6 +21,7 @@ public class RatingCriteria implements Serializable {
     private Integer star;
     private Integer status;
 
+    @Schema(hidden = true)
     public Specification<Rating> getCriteria() {
         return new Specification<Rating>() {
             private static final long serialVersionUID = 1L;

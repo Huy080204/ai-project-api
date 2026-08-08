@@ -1,6 +1,7 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Tag;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -22,6 +23,7 @@ public class TagCriteria implements Serializable {
     private String name;
     private Integer status;
 
+    @Schema(hidden = true)
     public Specification<Tag> getCriteria() {
         return new Specification<Tag>() {
             private static final long serialVersionUID = 1L;
