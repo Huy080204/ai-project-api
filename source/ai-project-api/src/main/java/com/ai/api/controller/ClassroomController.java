@@ -110,9 +110,6 @@ public class ClassroomController extends ABasicController {
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         Classroom classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
-        if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState())) {
-            throw new BadRequestException("Unable to delete classroom that is not pending", ErrorCode.CLASSROOM_ERROR_UNABLE_DELETE);
-        }
         registrationRepository.deleteAllByClassroomId(id);
         classroomStudentRepository.deleteAllByClassroomId(id);
         classroomRepository.deleteById(id);
