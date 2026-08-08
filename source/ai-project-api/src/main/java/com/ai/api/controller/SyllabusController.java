@@ -14,6 +14,7 @@ import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.SyllabusCriteria;
+import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
@@ -62,6 +63,9 @@ public class SyllabusController extends ABasicController {
 
     @Autowired
     private FileService fileService;
+
+    @Autowired
+    private AssignmentRepository assignmentRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -155,6 +159,11 @@ public class SyllabusController extends ABasicController {
             chapter.setTimeline(chapter.getTimeline() - syllabus.getTimeline());
             syllabusRepository.save(chapter);
 
+            List<String> assignmentFiles = assignmentRepository.findFileAttachmentUrlsBySyllabusId(id);
+            if (!assignmentFiles.isEmpty()) {
+                fileService.deleteFiles(assignmentFiles);
+            }
+            assignmentRepository.deleteAllBySyllabusId(id);
             syllabusRepository.deleteById(id);
             courseRepository.updateTotalTimelineByDelta(courseId, -syllabus.getTimeline());
         } else if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind())) {
@@ -173,6 +182,11 @@ public class SyllabusController extends ABasicController {
                 }
             }
 
+            List<String> assignmentFiles = assignmentRepository.findFileAttachmentUrlsBySyllabusId(id);
+            if (!assignmentFiles.isEmpty()) {
+                fileService.deleteFiles(assignmentFiles);
+            }
+            assignmentRepository.deleteAllBySyllabusId(id);
             syllabusRepository.deleteById(id);
         }
 

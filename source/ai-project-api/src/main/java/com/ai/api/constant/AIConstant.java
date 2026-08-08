@@ -53,6 +53,10 @@ public class AIConstant {
     public static final Integer VOUCHER_STATE_ACTIVE = 1;
     public static final Integer VOUCHER_STATE_DONE = 2;
 
+    public static final Integer ASSIGNMENT_STATE_DRAFT = 0;
+    public static final Integer ASSIGNMENT_STATE_PUBLISHED = 1;
+    public static final Integer ASSIGNMENT_STATE_CLOSED = 2;
+
     private AIConstant() {
         throw new IllegalStateException("Utility class");
     }

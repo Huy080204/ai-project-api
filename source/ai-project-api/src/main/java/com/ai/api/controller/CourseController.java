@@ -12,6 +12,7 @@ import com.ai.api.form.course.UpdateCourseForm;
 import com.ai.api.mapper.CourseMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.criteria.CourseCriteria;
+import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
@@ -73,6 +74,9 @@ public class CourseController extends ABasicController {
     @Autowired
     private ClassroomStudentRepository classroomStudentRepository;
 
+    @Autowired
+    private AssignmentRepository assignmentRepository;
+
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COU_C')")
@@ -129,10 +133,12 @@ public class CourseController extends ABasicController {
             filesToDelete.add(course.getAvatar());
         }
         filesToDelete.addAll(syllabusRepository.findAvatarsByCourseId(id));
+        filesToDelete.addAll(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(id));
         fileService.deleteFiles(filesToDelete);
         registrationRepository.deleteAllByClassroomCourseId(id);
         classroomStudentRepository.deleteAllByClassroomCourseId(id);
         classroomRepository.deleteAllByCourseId(id);
+        assignmentRepository.deleteAllBySyllabusCourseId(id);
         syllabusRepository.deleteAllByCourseId(id);
         ratingRepository.deleteAllByCourseId(id);
         courseRepository.deleteById(id);
