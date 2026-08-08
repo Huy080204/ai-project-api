@@ -16,6 +16,7 @@ import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.SyllabusCriteria;
 import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,9 @@ class SyllabusControllerTest {
 
     @Mock
     private AssignmentRepository assignmentRepository;
+
+    @Mock
+    private SubmissionRepository submissionRepository;
 
     @InjectMocks
     private SyllabusController syllabusController;

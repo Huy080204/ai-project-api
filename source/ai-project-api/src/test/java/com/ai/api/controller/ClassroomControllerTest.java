@@ -271,20 +271,21 @@ class ClassroomControllerTest {
     }
 
     @Test
-    void shouldThrowBadRequestWhenDeleteClassroomStateNotPending() {
-        // Arrange
+    void shouldDeleteClassroomSuccessfullyWhenStateNotPending() {
+        // Arrange - deletion is no longer blocked by state (business rule dropped)
         Classroom classroom = new Classroom();
         classroom.setId(11L);
         classroom.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
         when(classroomRepository.findById(11L)).thenReturn(Optional.of(classroom));
 
-        // Act + Assert
-        assertThatThrownBy(() -> classroomController.delete(11L))
-                .isInstanceOfSatisfying(BadRequestException.class,
-                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_ERROR_UNABLE_DELETE));
-        verify(classroomRepository, never()).deleteById(any());
-        verify(registrationRepository, never()).deleteAllByClassroomId(any());
-        verify(classroomStudentRepository, never()).deleteAllByClassroomId(any());
+        // Act
+        ApiMessageDto<Void> result = classroomController.delete(11L);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        verify(classroomRepository).deleteById(11L);
+        verify(registrationRepository).deleteAllByClassroomId(11L);
+        verify(classroomStudentRepository).deleteAllByClassroomId(11L);
     }
 
     // ------------------------------------------------------------ auto-complete

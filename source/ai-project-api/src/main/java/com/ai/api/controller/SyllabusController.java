@@ -16,6 +16,7 @@ import com.ai.api.model.Syllabus;
 import com.ai.api.model.criteria.SyllabusCriteria;
 import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +67,9 @@ public class SyllabusController extends ABasicController {
 
     @Autowired
     private AssignmentRepository assignmentRepository;
+
+    @Autowired
+    private SubmissionRepository submissionRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -159,10 +163,12 @@ public class SyllabusController extends ABasicController {
             chapter.setTimeline(chapter.getTimeline() - syllabus.getTimeline());
             syllabusRepository.save(chapter);
 
-            List<String> assignmentFiles = assignmentRepository.findFileAttachmentUrlsBySyllabusId(id);
-            if (!assignmentFiles.isEmpty()) {
-                fileService.deleteFiles(assignmentFiles);
+            List<String> filesToDelete = new ArrayList<>(assignmentRepository.findFileAttachmentUrlsBySyllabusId(id));
+            filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusId(id));
+            if (!filesToDelete.isEmpty()) {
+                fileService.deleteFiles(filesToDelete);
             }
+            submissionRepository.deleteAllBySyllabusId(id);
             assignmentRepository.deleteAllBySyllabusId(id);
             syllabusRepository.deleteById(id);
             courseRepository.updateTotalTimelineByDelta(courseId, -syllabus.getTimeline());
@@ -182,10 +188,12 @@ public class SyllabusController extends ABasicController {
                 }
             }
 
-            List<String> assignmentFiles = assignmentRepository.findFileAttachmentUrlsBySyllabusId(id);
-            if (!assignmentFiles.isEmpty()) {
-                fileService.deleteFiles(assignmentFiles);
+            List<String> filesToDelete = new ArrayList<>(assignmentRepository.findFileAttachmentUrlsBySyllabusId(id));
+            filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusId(id));
+            if (!filesToDelete.isEmpty()) {
+                fileService.deleteFiles(filesToDelete);
             }
+            submissionRepository.deleteAllBySyllabusId(id);
             assignmentRepository.deleteAllBySyllabusId(id);
             syllabusRepository.deleteById(id);
         }
