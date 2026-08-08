@@ -18,6 +18,7 @@ import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.RegistrationRepository;
+import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
@@ -89,6 +90,9 @@ class CourseControllerTest {
 
     @Mock
     private RatingRepository ratingRepository;
+
+    @Mock
+    private SubmissionRepository submissionRepository;
 
     @InjectMocks
     private CourseController courseController;

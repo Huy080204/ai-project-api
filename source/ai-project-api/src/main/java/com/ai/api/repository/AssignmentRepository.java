@@ -37,6 +37,6 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long>, J
      */
     @Modifying
     @Transactional
-    @Query("DELETE FROM Assignment a WHERE a.syllabus.course.id = :courseId")
+    @Query("DELETE FROM Assignment a WHERE a.syllabus.id IN (SELECT s.id FROM Syllabus s WHERE s.course.id = :courseId)")
     void deleteAllBySyllabusCourseId(@Param("courseId") Long courseId);
 }
