@@ -17,6 +17,7 @@ import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RatingRepository;
+import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
@@ -71,6 +72,9 @@ public class CourseController extends ABasicController {
 
     @Autowired
     private RatingRepository ratingRepository;
+
+    @Autowired
+    private ReactionRepository reactionRepository;
 
     @Autowired
     private ClassroomStudentRepository classroomStudentRepository;
@@ -147,6 +151,7 @@ public class CourseController extends ABasicController {
         assignmentRepository.deleteAllBySyllabusCourseId(id);
         syllabusRepository.deleteAllByCourseId(id);
         ratingRepository.deleteAllByCourseId(id);
+        reactionRepository.deleteAllByCourseId(id);
         courseRepository.deleteById(id);
         return makeSuccessResponse("Delete course success");
     }

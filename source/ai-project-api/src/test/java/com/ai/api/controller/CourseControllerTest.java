@@ -17,6 +17,7 @@ import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RatingRepository;
+import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.repository.SyllabusRepository;
@@ -90,6 +91,9 @@ class CourseControllerTest {
 
     @Mock
     private RatingRepository ratingRepository;
+
+    @Mock
+    private ReactionRepository reactionRepository;
 
     @Mock
     private SubmissionRepository submissionRepository;
@@ -298,6 +302,7 @@ class CourseControllerTest {
         verify(syllabusRepository, never()).deleteAllByCourseId(any());
         verify(registrationRepository, never()).deleteAllByClassroomCourseId(any());
         verify(ratingRepository, never()).deleteAllByCourseId(any());
+        verify(reactionRepository, never()).deleteAllByCourseId(any());
     }
 
     @Test
@@ -329,6 +334,10 @@ class CourseControllerTest {
         InOrder ratingInOrder = inOrder(ratingRepository, courseRepository);
         ratingInOrder.verify(ratingRepository).deleteAllByCourseId(1L);
         ratingInOrder.verify(courseRepository).deleteById(1L);
+
+        InOrder reactionInOrder = inOrder(reactionRepository, courseRepository);
+        reactionInOrder.verify(reactionRepository).deleteAllByCourseId(1L);
+        reactionInOrder.verify(courseRepository).deleteById(1L);
     }
 
     @Test
