@@ -21,6 +21,7 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
+import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.service.FileService;
@@ -79,6 +80,9 @@ class StudentControllerTest {
 
     @Mock
     private RatingRepository ratingRepository;
+
+    @Mock
+    private ReactionRepository reactionRepository;
 
     @Mock
     private SubmissionRepository submissionRepository;
@@ -346,6 +350,7 @@ class StudentControllerTest {
         verify(fileService).deleteFiles(Collections.singletonList("/avatar/to-delete.png"));
         verify(classroomStudentRepository).deleteAllByStudentId(1L);
         verify(ratingRepository).deleteAllByStudentId(1L);
+        verify(reactionRepository).deleteAllByStudentId(1L);
 
         // Arrange - blank/null avatar path
         Account accountWithoutAvatar = new Account();

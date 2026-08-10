@@ -145,4 +145,18 @@ public class ErrorCode {
     public static final String SUBMISSION_ERROR_NOT_FOUND = "ERROR-SUBMISSION-000";
     public static final String SUBMISSION_ERROR_ASSIGNMENT_CLOSED = "ERROR-SUBMISSION-001";
     public static final String SUBMISSION_ERROR_ALREADY_GRADED = "ERROR-SUBMISSION-002";
+
+    /**
+     * Job posting error code
+     */
+    public static final String JOB_POSTING_ERROR_NOT_FOUND = "ERROR-JOB-POSTING-000";
+    public static final String JOB_POSTING_ERROR_COMPANY_NOT_FOUND = "ERROR-JOB-POSTING-001";
+
+    /**
+     * Reaction error code
+     */
+    public static final String REACTION_ERROR_NOT_FOUND = "ERROR-REACTION-000";
+    public static final String REACTION_ERROR_COURSE_NOT_FOUND = "ERROR-REACTION-001";
+    public static final String REACTION_ERROR_STUDENT_NOT_FOUND = "ERROR-REACTION-002";
+    public static final String REACTION_ERROR_DUPLICATE = "ERROR-REACTION-003";
 }

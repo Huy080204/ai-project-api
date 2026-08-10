@@ -1,0 +1,35 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet author="Authentication" id="1786355481413-1">
+        <createTable tableName="db_reaction">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="db_reactionPK"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="datetime">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modified_by" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="modified_date" type="datetime">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content" type="TEXT"/>
+            <column name="type" type="INT"/>
+            <column name="course_id" type="BIGINT"/>
+            <column name="student_id" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="Authentication" id="1786355481413-2">
+        <addForeignKeyConstraint baseColumnNames="course_id" baseTableName="db_reaction" constraintName="FKa8p7udwuspo24qw663e4483j9" deferrable="false" initiallyDeferred="false" referencedColumnNames="id" referencedTableName="db_course" validate="true"/>
+    </changeSet>
+    <changeSet author="Authentication" id="1786355481413-3">
+        <addForeignKeyConstraint baseColumnNames="student_id" baseTableName="db_reaction" constraintName="FKjg4ffh2d6s9y616o5sjig2e9h" deferrable="false" initiallyDeferred="false" referencedColumnNames="account_id" referencedTableName="db_student" validate="true"/>
+    </changeSet>
+</databaseChangeLog>
