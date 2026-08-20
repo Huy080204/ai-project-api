@@ -36,6 +36,11 @@ public interface AssignmentMapper {
     @IterableMapping(elementTargetType = AssignmentDto.class, qualifiedByName = "fromEntityToAssignmentDto")
     List<AssignmentDto> fromEntityToAssignmentDtoList(List<Assignment> assignments);
 
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToAssignmentIdDto")
+    AssignmentDto fromEntityToAssignmentIdDto(Assignment assignment);
+
     @Mapping(source = "title", target = "title")
     @Mapping(source = "description", target = "description")
     @Mapping(source = "deadline", target = "deadline")

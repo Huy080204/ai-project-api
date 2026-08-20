@@ -48,4 +48,9 @@ public interface JobPostingMapper {
     @IterableMapping(elementTargetType = JobPostingDto.class, qualifiedByName = "fromEntityToJobPostingDto")
     @Named("fromEntityToJobPostingDtoList")
     List<JobPostingDto> fromEntityToJobPostingDtoList(List<JobPosting> jobPostings);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(source = "id", target = "id")
+    @Named("fromEntityToJobPostingIdDto")
+    JobPostingDto fromEntityToJobPostingIdDto(JobPosting jobPosting);
 }

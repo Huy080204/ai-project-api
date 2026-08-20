@@ -67,4 +67,9 @@ public interface VoucherMapper {
 
     @IterableMapping(elementTargetType = VoucherDto.class, qualifiedByName = "fromEntityToVoucherDto")
     List<VoucherDto> fromEntityListToVoucherDtoList(List<Voucher> vouchers);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToVoucherIdDto")
+    VoucherDto fromEntityToVoucherIdDto(Voucher voucher);
 }

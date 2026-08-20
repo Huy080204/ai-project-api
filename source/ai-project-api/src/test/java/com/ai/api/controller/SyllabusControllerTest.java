@@ -166,7 +166,7 @@ class SyllabusControllerTest {
         when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
 
         // Act
-        ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
+        ApiMessageDto<SyllabusDto> result = syllabusController.create(form, bindingResult);
 
         // Assert - a Chapter create never triggers a course-total recompute (Lesson rows,
         // never Chapter rows, are what the recompute sums over).
@@ -194,7 +194,7 @@ class SyllabusControllerTest {
                 .thenReturn(Optional.of(chapter));
 
         // Act
-        ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
+        ApiMessageDto<SyllabusDto> result = syllabusController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

@@ -55,7 +55,7 @@ class VoucherControllerTest {
         when(voucherRepository.existsByCodeIgnoreCase("SALE10")).thenReturn(false);
         when(voucherMapper.fromCreateFormToEntity(form)).thenReturn(voucher);
 
-        ApiMessageDto<Void> result = voucherController.create(form, bindingResult);
+        ApiMessageDto<VoucherDto> result = voucherController.create(form, bindingResult);
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Create voucher success");

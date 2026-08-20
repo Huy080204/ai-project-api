@@ -130,7 +130,7 @@ class RegistrationControllerTest {
         when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
 
         // Act
-        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+        ApiMessageDto<RegistrationDto> result = registrationController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -186,7 +186,7 @@ class RegistrationControllerTest {
         when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
 
         // Act
-        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+        ApiMessageDto<RegistrationDto> result = registrationController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -207,7 +207,7 @@ class RegistrationControllerTest {
         when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
 
         // Act
-        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+        ApiMessageDto<RegistrationDto> result = registrationController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -305,7 +305,7 @@ class RegistrationControllerTest {
         when(voucherService.calculateDiscountAmount(voucher, new BigDecimal("2000000"))).thenReturn(new BigDecimal("200000.00"));
 
         // Act
-        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+        ApiMessageDto<RegistrationDto> result = registrationController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -328,7 +328,7 @@ class RegistrationControllerTest {
         when(registrationMapper.fromCreateRegistrationFormToEntity(form)).thenReturn(registration);
 
         // Act
-        ApiMessageDto<Void> result = registrationController.create(form, bindingResult);
+        ApiMessageDto<RegistrationDto> result = registrationController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

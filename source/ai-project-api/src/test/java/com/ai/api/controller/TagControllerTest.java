@@ -42,7 +42,7 @@ class TagControllerTest {
         when(tagRepository.existsByNameIgnoreCase("Java")).thenReturn(false);
         when(tagMapper.fromCreateFormToEntity(form)).thenReturn(tag);
 
-        ApiMessageDto<Void> result = tagController.create(form, bindingResult);
+        ApiMessageDto<TagDto> result = tagController.create(form, bindingResult);
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Create tag success");

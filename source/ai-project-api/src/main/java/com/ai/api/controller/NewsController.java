@@ -57,13 +57,13 @@ public class NewsController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('NEW_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateNewsForm createNewsForm, BindingResult bindingResult) {
+    public ApiMessageDto<NewsDto> create(@Valid @RequestBody CreateNewsForm createNewsForm, BindingResult bindingResult) {
         Category category = categoryRepository.findById(createNewsForm.getCategoryId())
                 .orElseThrow(() -> new NotFoundException("Category not found", ErrorCode.NEWS_ERROR_CATEGORY_NOT_FOUND));
         News news = newsMapper.fromCreateNewsFormToEntity(createNewsForm);
         news.setCategory(category);
         newsRepository.save(news);
-        return makeSuccessResponse("Create news success");
+        return makeSuccessResponse(newsMapper.fromEntityToNewsIdDto(news), "Create news success");
     }
 
     @Transactional

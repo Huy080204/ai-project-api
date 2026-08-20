@@ -72,7 +72,7 @@ class AssignmentControllerTest {
         when(assignmentMapper.fromFormToEntity(form)).thenReturn(entity);
         when(assignmentRepository.save(entity)).thenReturn(entity);
 
-        ApiMessageDto<Void> result = controller.create(form);
+        ApiMessageDto<AssignmentDto> result = controller.create(form);
 
         assertThat(result.getResult()).isTrue();
         verify(assignmentRepository).save(entity);

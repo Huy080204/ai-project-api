@@ -50,4 +50,9 @@ public interface NewsMapper {
     @IterableMapping(elementTargetType = NewsDto.class, qualifiedByName = "fromEntityToNewsDto")
     @Named("fromEntityToNewsDtoList")
     List<NewsDto> fromEntityToNewsDtoList(List<News> newsList);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToNewsIdDto")
+    NewsDto fromEntityToNewsIdDto(News news);
 }

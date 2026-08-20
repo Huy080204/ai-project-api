@@ -49,13 +49,13 @@ public class VoucherController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('VOU_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateVoucherForm createVoucherForm, BindingResult bindingResult) {
+    public ApiMessageDto<VoucherDto> create(@Valid @RequestBody CreateVoucherForm createVoucherForm, BindingResult bindingResult) {
         if (voucherRepository.existsByCodeIgnoreCase(createVoucherForm.getCode())) {
             throw new BadRequestException("Voucher code already exist", ErrorCode.VOUCHER_ERROR_CODE_EXISTED);
         }
         Voucher voucher = voucherMapper.fromCreateFormToEntity(createVoucherForm);
         voucherRepository.save(voucher);
-        return makeSuccessResponse("Create voucher success");
+        return makeSuccessResponse(voucherMapper.fromEntityToVoucherIdDto(voucher), "Create voucher success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

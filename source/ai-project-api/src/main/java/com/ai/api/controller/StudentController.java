@@ -76,7 +76,7 @@ public class StudentController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('STU_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateStudentForm form, BindingResult bindingResult) {
+    public ApiMessageDto<StudentDto> create(@Valid @RequestBody CreateStudentForm form, BindingResult bindingResult) {
         Group group = groupRepository.findById(form.getGroupId())
                 .orElseThrow(() -> new BadRequestException("[Group] Group not found", ErrorCode.GROUP_ERROR_NOT_FOUND));
 
@@ -106,7 +106,7 @@ public class StudentController extends ABasicController {
         student.setAccount(account);
         studentRepository.save(student);
 
-        return makeSuccessResponse("Create student success");
+        return makeSuccessResponse(studentMapper.fromEntityToStudentIdDto(student), "Create student success");
     }
 
     @Transactional

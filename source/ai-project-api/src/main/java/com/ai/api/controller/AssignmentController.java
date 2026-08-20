@@ -61,14 +61,14 @@ public class AssignmentController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ASM_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateAssignmentForm createAssignmentForm) {
+    public ApiMessageDto<AssignmentDto> create(@Valid @RequestBody CreateAssignmentForm createAssignmentForm) {
         Syllabus syllabus = syllabusRepository.findById(createAssignmentForm.getSyllabusId())
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
 
         Assignment assignment = assignmentMapper.fromFormToEntity(createAssignmentForm);
         assignment.setSyllabus(syllabus);
         assignmentRepository.save(assignment);
-        return makeSuccessResponse("Create assignment success");
+        return makeSuccessResponse(assignmentMapper.fromEntityToAssignmentIdDto(assignment), "Create assignment success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

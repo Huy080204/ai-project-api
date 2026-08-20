@@ -79,7 +79,7 @@ public class RegistrationController extends ABasicController {
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
+    public ApiMessageDto<RegistrationDto> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
         Classroom classroom = classroomRepository.findById(createRegistrationForm.getClassroomId())
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
         if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState()) && !AIConstant.CLASSROOM_STATE_ACTIVE.equals(classroom.getState())) {
@@ -111,7 +111,7 @@ public class RegistrationController extends ABasicController {
             registration.setDiscountAmount(discountAmount);
         }
         registrationRepository.save(registration);
-        return makeSuccessResponse("Create registration success");
+        return makeSuccessResponse(registrationMapper.fromEntityToRegistrationIdDto(registration), "Create registration success");
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)

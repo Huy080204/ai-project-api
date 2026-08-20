@@ -41,4 +41,9 @@ public interface TagMapper {
 
     @IterableMapping(elementTargetType = TagDto.class, qualifiedByName = "fromEntityToTagDto")
     List<TagDto> fromEntityListToTagDtoList(List<Tag> tags);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToTagIdDto")
+    TagDto fromEntityToTagIdDto(Tag tag);
 }

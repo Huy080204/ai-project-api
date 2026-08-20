@@ -80,7 +80,7 @@ class SubmissionControllerTest {
         when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
         when(submissionMapper.fromFormToEntity(form)).thenReturn(submission);
 
-        ApiMessageDto<Void> result = submissionController.create(form);
+        ApiMessageDto<SubmissionDto> result = submissionController.create(form);
 
         assertThat(result.getResult()).isTrue();
         assertThat(submission.getState()).isEqualTo(0);

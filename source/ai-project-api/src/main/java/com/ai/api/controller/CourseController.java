@@ -92,13 +92,13 @@ public class CourseController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COU_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateCourseForm createCourseForm, BindingResult bindingResult) {
+    public ApiMessageDto<CourseDto> create(@Valid @RequestBody CreateCourseForm createCourseForm, BindingResult bindingResult) {
         if (courseRepository.existsByName(createCourseForm.getName())) {
             throw new BadRequestException("Course name already exist", ErrorCode.COURSE_ERROR_NAME_EXIST);
         }
         Course course = courseMapper.fromCreateCourseFormToEntity(createCourseForm);
         courseRepository.save(course);
-        return makeSuccessResponse("Create course success");
+        return makeSuccessResponse(courseMapper.fromEntityToCourseIdDto(course), "Create course success");
     }
 
     @Transactional

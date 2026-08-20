@@ -52,4 +52,9 @@ public interface SubmissionMapper {
     @Mapping(source = "feedback", target = "feedback")
     @BeanMapping(ignoreByDefault = true)
     void updateEntityFromGradeForm(GradeSubmissionForm gradeSubmissionForm, @MappingTarget Submission submission);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToSubmissionIdDto")
+    SubmissionDto fromEntityToSubmissionIdDto(Submission submission);
 }

@@ -83,7 +83,7 @@ class CompanyControllerTest {
         when(companyMapper.fromFormToEntity(form)).thenReturn(company);
 
         // Act
-        ApiMessageDto<Void> result = companyController.create(form, bindingResult);
+        ApiMessageDto<CompanyDto> result = companyController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

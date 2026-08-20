@@ -88,7 +88,7 @@ class ReactionControllerTest {
                 .thenReturn(null);
         when(reactionMapper.fromFormToEntity(form)).thenReturn(entity);
         when(reactionRepository.save(entity)).thenReturn(entity);
-        when(reactionMapper.fromEntityToReactionDto(entity)).thenReturn(dto);
+        when(reactionMapper.fromEntityToReactionIdDto(entity)).thenReturn(dto);
 
         ApiMessageDto<ReactionDto> result = controller.create(form);
 

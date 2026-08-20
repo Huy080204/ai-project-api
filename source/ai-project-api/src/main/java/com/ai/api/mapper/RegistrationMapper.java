@@ -44,4 +44,9 @@ public interface RegistrationMapper {
     @IterableMapping(elementTargetType = RegistrationDto.class, qualifiedByName = "fromEntityToRegistrationDto")
     @Named("fromEntityToRegistrationDtoList")
     List<RegistrationDto> fromEntityToRegistrationDtoList(List<Registration> registrations);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToRegistrationIdDto")
+    RegistrationDto fromEntityToRegistrationIdDto(Registration registration);
 }

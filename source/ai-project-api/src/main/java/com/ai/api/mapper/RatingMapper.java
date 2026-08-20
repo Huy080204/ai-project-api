@@ -53,4 +53,9 @@ public interface RatingMapper {
     @IterableMapping(elementTargetType = RatingDto.class, qualifiedByName = "fromEntityToRatingDtoPublic")
     @Named("fromEntityToRatingDtoPublicList")
     List<RatingDto> fromEntityToRatingDtoPublicList(List<Rating> ratings);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(source = "id", target = "id")
+    @Named("fromEntityToRatingIdDto")
+    RatingDto fromEntityToRatingIdDto(Rating rating);
 }
