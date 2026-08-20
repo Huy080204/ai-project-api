@@ -53,7 +53,7 @@ public class JobPostingController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('JP_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateJobPostingForm form, BindingResult bindingResult) {
+    public ApiMessageDto<JobPostingDto> create(@Valid @RequestBody CreateJobPostingForm form, BindingResult bindingResult) {
         Company company = companyRepository.findById(form.getCompanyId())
                 .orElseThrow(() -> new NotFoundException("[JobPosting] Company not found", ErrorCode.JOB_POSTING_ERROR_COMPANY_NOT_FOUND));
 
@@ -61,7 +61,7 @@ public class JobPostingController extends ABasicController {
         jobPosting.setCompany(company);
         jobPosting.setState(AIConstant.JOB_POSTING_STATE_OPEN);
         jobPostingRepository.save(jobPosting);
-        return makeSuccessResponse("Create JobPosting success");
+        return makeSuccessResponse(jobPostingMapper.fromEntityToJobPostingIdDto(jobPosting), "Create JobPosting success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

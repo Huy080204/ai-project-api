@@ -63,7 +63,7 @@ public class MentorController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateMentorForm form, BindingResult bindingResult) {
+    public ApiMessageDto<MentorDto> create(@Valid @RequestBody CreateMentorForm form, BindingResult bindingResult) {
         Group group = groupRepository.findById(form.getGroupId())
                 .orElseThrow(() -> new BadRequestException("[Group] Group not found", ErrorCode.GROUP_ERROR_NOT_FOUND));
 
@@ -93,7 +93,7 @@ public class MentorController extends ABasicController {
         mentor.setAccount(account);
         mentorRepository.save(mentor);
 
-        return makeSuccessResponse("Create mentor success");
+        return makeSuccessResponse(mentorMapper.fromEntityToMentorIdDto(mentor), "Create mentor success");
     }
 
     @Transactional

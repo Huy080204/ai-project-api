@@ -80,7 +80,7 @@ class NewsControllerTest {
         when(newsMapper.fromCreateNewsFormToEntity(form)).thenReturn(news);
 
         // Act
-        ApiMessageDto<Void> result = newsController.create(form, bindingResult);
+        ApiMessageDto<NewsDto> result = newsController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

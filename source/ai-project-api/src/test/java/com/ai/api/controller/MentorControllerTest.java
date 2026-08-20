@@ -129,7 +129,7 @@ class MentorControllerTest {
         BindingResult bindingResult = mock(BindingResult.class);
 
         // Act
-        ApiMessageDto<Void> result = mentorController.create(form, bindingResult);
+        ApiMessageDto<MentorDto> result = mentorController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

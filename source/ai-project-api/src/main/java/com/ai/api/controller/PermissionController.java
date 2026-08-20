@@ -36,14 +36,14 @@ public class PermissionController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('PER_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreatePermissionForm createPermissionForm, BindingResult bindingResult) {
+    public ApiMessageDto<PermissionDto> create(@Valid @RequestBody CreatePermissionForm createPermissionForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
         }
         Permission permission = permissionMapper.fromCreatePermissionFormToEntity(createPermissionForm);
         permission.setPCode(createPermissionForm.getPermissionCode());
         permissionRepository.save(permission);
-        return makeSuccessResponse("Create permission success");
+        return makeSuccessResponse(permissionMapper.fromEntityToPermissionIdDto(permission), "Create permission success");
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)

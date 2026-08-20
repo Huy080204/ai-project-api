@@ -48,7 +48,7 @@ public class GroupController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
+    public ApiMessageDto<GroupDto> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
         }
@@ -67,7 +67,7 @@ public class GroupController extends ABasicController {
         group.setStatus(AIConstant.STATUS_ACTIVE);
         group.setPermissions(permissions);
         groupRepository.save(group);
-        return makeSuccessResponse("Create Group success");
+        return makeSuccessResponse(groupMapper.fromEntityToGroupIdDto(group), "Create Group success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -79,7 +79,7 @@ public class SubmissionController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SUB_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateSubmissionForm createSubmissionForm) {
+    public ApiMessageDto<SubmissionDto> create(@Valid @RequestBody CreateSubmissionForm createSubmissionForm) {
         Assignment assignment = assignmentRepository.findById(createSubmissionForm.getAssignmentId())
                 .orElseThrow(() -> new NotFoundException("Not found assignment!", ErrorCode.ASSIGNMENT_ERROR_NOT_FOUND));
         Student student = studentRepository.findById(createSubmissionForm.getStudentId())
@@ -93,7 +93,7 @@ public class SubmissionController extends ABasicController {
         submission.setAssignment(assignment);
         submission.setStudent(student);
         submissionRepository.save(submission);
-        return makeSuccessResponse("Create submission success");
+        return makeSuccessResponse(submissionMapper.fromEntityToSubmissionIdDto(submission), "Create submission success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -57,14 +57,14 @@ public class SyllabusMaterialController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SM_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateSyllabusMaterialForm createForm, BindingResult bindingResult) {
+    public ApiMessageDto<SyllabusMaterialDto> create(@Valid @RequestBody CreateSyllabusMaterialForm createForm, BindingResult bindingResult) {
         Syllabus syllabus = syllabusRepository.findById(createForm.getSyllabusId())
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
 
         SyllabusMaterial syllabusMaterial = syllabusMaterialMapper.fromCreateSyllabusMaterialFormToEntity(createForm);
         syllabusMaterial.setSyllabus(syllabus);
         syllabusMaterialRepository.save(syllabusMaterial);
-        return makeSuccessResponse("Create syllabus material success");
+        return makeSuccessResponse(syllabusMaterialMapper.fromEntityToSyllabusMaterialIdDto(syllabusMaterial), "Create syllabus material success");
     }
 
     @GetMapping(value = "/get/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

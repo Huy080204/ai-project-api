@@ -79,7 +79,7 @@ class GroupControllerTest {
         when(groupMapper.fromCreateGroupFormToEntity(any(CreateGroupForm.class))).thenReturn(group);
         when(permissionRepository.findById(1L)).thenReturn(Optional.of(new Permission()));
 
-        ApiMessageDto<Void> result = controller.create(createGroupForm(), mock(BindingResult.class));
+        ApiMessageDto<GroupDto> result = controller.create(createGroupForm(), mock(BindingResult.class));
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Create Group success");

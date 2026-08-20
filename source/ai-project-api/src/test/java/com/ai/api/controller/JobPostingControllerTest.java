@@ -83,7 +83,7 @@ class JobPostingControllerTest {
         when(companyRepository.findById(1L)).thenReturn(Optional.of(company));
         when(jobPostingMapper.fromFormToEntity(form)).thenReturn(jobPosting);
 
-        ApiMessageDto<Void> result = jobPostingController.create(form, bindingResult);
+        ApiMessageDto<JobPostingDto> result = jobPostingController.create(form, bindingResult);
 
         assertThat(result.getResult()).isTrue();
         verify(jobPostingRepository).save(jobPosting);

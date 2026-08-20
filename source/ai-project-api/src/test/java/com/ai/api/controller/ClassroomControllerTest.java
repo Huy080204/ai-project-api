@@ -122,7 +122,7 @@ class ClassroomControllerTest {
         when(classroomMapper.fromCreateClassroomFormToEntity(form)).thenReturn(classroom);
 
         // Act
-        ApiMessageDto<Void> result = classroomController.create(form, bindingResult);
+        ApiMessageDto<ClassroomDto> result = classroomController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

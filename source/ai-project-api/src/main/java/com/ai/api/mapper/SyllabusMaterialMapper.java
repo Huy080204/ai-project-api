@@ -44,4 +44,9 @@ public interface SyllabusMaterialMapper {
 
     @IterableMapping(elementTargetType = SyllabusMaterialDto.class, qualifiedByName = "fromEntityToSyllabusMaterialDto")
     List<SyllabusMaterialDto> fromEntityToSyllabusMaterialDtoList(List<SyllabusMaterial> syllabusMaterials);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToSyllabusMaterialIdDto")
+    SyllabusMaterialDto fromEntityToSyllabusMaterialIdDto(SyllabusMaterial syllabusMaterial);
 }

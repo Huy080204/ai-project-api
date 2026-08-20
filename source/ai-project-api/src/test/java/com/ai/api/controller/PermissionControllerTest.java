@@ -60,7 +60,7 @@ class PermissionControllerTest {
         Permission entity = new Permission();
         when(permissionMapper.fromCreatePermissionFormToEntity(form)).thenReturn(entity);
 
-        ApiMessageDto<Void> result = controller.create(form, null);
+        ApiMessageDto<PermissionDto> result = controller.create(form, null);
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Create permission success");

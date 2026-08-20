@@ -53,4 +53,9 @@ public interface ReactionMapper {
     @Mapping(source = "type", target = "type")
     @BeanMapping(ignoreByDefault = true)
     void updateEntityFromForm(UpdateReactionForm updateReactionForm, @MappingTarget Reaction reaction);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToReactionIdDto")
+    ReactionDto fromEntityToReactionIdDto(Reaction reaction);
 }

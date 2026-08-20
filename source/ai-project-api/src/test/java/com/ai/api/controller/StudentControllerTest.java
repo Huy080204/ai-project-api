@@ -146,7 +146,7 @@ class StudentControllerTest {
         BindingResult bindingResult = mock(BindingResult.class);
 
         // Act
-        ApiMessageDto<Void> result = studentController.create(form, bindingResult);
+        ApiMessageDto<StudentDto> result = studentController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

@@ -136,7 +136,7 @@ class CourseControllerTest {
         when(courseMapper.fromCreateCourseFormToEntity(form)).thenReturn(course);
 
         // Act
-        ApiMessageDto<Void> result = courseController.create(form, bindingResult);
+        ApiMessageDto<CourseDto> result = courseController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

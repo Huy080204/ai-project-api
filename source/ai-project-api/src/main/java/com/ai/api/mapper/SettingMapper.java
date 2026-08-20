@@ -70,4 +70,9 @@ public interface SettingMapper {
 
     @IterableMapping(elementTargetType = SettingDto.class, qualifiedByName = "fromEntityToSettingDtoPublic")
     List<SettingDto> fromEntityToSettingDtoPublicList(List<Setting> settings);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToSettingIdDto")
+    SettingDto fromEntityToSettingIdDto(Setting setting);
 }

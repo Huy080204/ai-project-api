@@ -68,7 +68,7 @@ class SyllabusMaterialControllerTest {
         when(syllabusRepository.findById(1L)).thenReturn(Optional.of(syllabus));
         when(syllabusMaterialMapper.fromCreateSyllabusMaterialFormToEntity(form)).thenReturn(entity);
 
-        ApiMessageDto<Void> result = controller.create(form, null);
+        ApiMessageDto<SyllabusMaterialDto> result = controller.create(form, null);
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Create syllabus material success");

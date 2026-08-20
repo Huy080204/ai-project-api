@@ -65,7 +65,7 @@ public class ReactionController extends ABasicController {
         reaction.setCourse(course);
         reaction.setStudent(student);
         reaction = reactionRepository.save(reaction);
-        return makeSuccessResponse(reactionMapper.fromEntityToReactionDto(reaction), "Create reaction success");
+        return makeSuccessResponse(reactionMapper.fromEntityToReactionIdDto(reaction), "Create reaction success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

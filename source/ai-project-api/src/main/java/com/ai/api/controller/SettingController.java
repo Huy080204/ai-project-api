@@ -65,12 +65,13 @@ public class SettingController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SET_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateSettingForm createSettingForm, BindingResult bindingResult) {
+    public ApiMessageDto<SettingDto> create(@Valid @RequestBody CreateSettingForm createSettingForm, BindingResult bindingResult) {
         if (settingRepository.findFirstByGroupNameAndKeyName(createSettingForm.getGroupName(), createSettingForm.getKeyName()).isPresent()) {
             throw new BadRequestException("Group name and key name existed", ErrorCode.SETTING_ERROR_EXISTED_GROUP_NAME_AND_KEY_NAME);
         }
-        settingRepository.save(settingMapper.fromCreateSettingFormToEntity(createSettingForm));
-        return makeSuccessResponse("Create setting success");
+        Setting setting = settingMapper.fromCreateSettingFormToEntity(createSettingForm);
+        settingRepository.save(setting);
+        return makeSuccessResponse(settingMapper.fromEntityToSettingIdDto(setting), "Create setting success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
