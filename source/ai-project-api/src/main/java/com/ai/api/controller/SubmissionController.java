@@ -23,6 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,7 +71,7 @@ public class SubmissionController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SUB_L')")
-    public ApiMessageDto<ResponseListDto<List<SubmissionDto>>> list(SubmissionCriteria criteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<SubmissionDto>>> list(SubmissionCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<Submission> page = submissionRepository.findAll(criteria.getCriteria(), pageable);
         ResponseListDto<List<SubmissionDto>> responseListDto =
                 makeResponseListDto(page, submissionMapper::fromEntityToSubmissionDtoList);

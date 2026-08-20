@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -101,7 +103,7 @@ public class JobPostingController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('JP_L')")
-    public ApiMessageDto<ResponseListDto<List<JobPostingDto>>> list(JobPostingCriteria criteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<JobPostingDto>>> list(JobPostingCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<JobPosting> page = jobPostingRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(page, jobPostingMapper::fromEntityToJobPostingDtoList), "List JobPosting success");
     }
