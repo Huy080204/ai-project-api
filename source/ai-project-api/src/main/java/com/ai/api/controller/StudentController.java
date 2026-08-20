@@ -18,6 +18,7 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
+import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.service.FileService;
@@ -67,6 +68,8 @@ public class StudentController extends ABasicController {
     private ClassroomStudentRepository classroomStudentRepository;
     @Autowired
     private RatingRepository ratingRepository;
+    @Autowired
+    private ReactionRepository reactionRepository;
     @Autowired
     private SubmissionRepository submissionRepository;
 
@@ -192,6 +195,7 @@ public class StudentController extends ABasicController {
 
         classroomStudentRepository.deleteAllByStudentId(id);
         ratingRepository.deleteAllByStudentId(id);
+        reactionRepository.deleteAllByStudentId(id);
         submissionRepository.deleteAllByStudentId(id);
 
         student.setStatus(AIConstant.STATUS_DELETE);

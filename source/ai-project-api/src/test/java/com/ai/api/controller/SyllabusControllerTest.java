@@ -13,10 +13,12 @@ import com.ai.api.form.syllabus.UpdateSyllabusOrderingForm;
 import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Syllabus;
+import com.ai.api.model.SyllabusMaterial;
 import com.ai.api.model.criteria.SyllabusCriteria;
 import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.SubmissionRepository;
+import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -78,6 +81,9 @@ class SyllabusControllerTest {
 
     @Mock
     private SubmissionRepository submissionRepository;
+
+    @Mock
+    private SyllabusMaterialRepository syllabusMaterialRepository;
 
     @InjectMocks
     private SyllabusController syllabusController;
@@ -506,6 +512,40 @@ class SyllabusControllerTest {
         assertThat(result.getResult()).isTrue();
         verify(syllabusRepository).deleteById(1L);
         verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldCascadeDeleteSyllabusMaterialsWhenSyllabusDeleted() {
+        // Arrange - regression test (FR-006): deleting a Syllabus must cascade-delete its
+        // SyllabusMaterial children, batching the file cleanup for the non-blank fileUrl child
+        // only (never for the blank one) into a single fileService.deleteFiles call.
+        Course course = course(1L);
+        Syllabus chapter = chapterSyllabus(1L, course, 20);
+        chapter.setOrdering(1);
+
+        SyllabusMaterial materialWithFile = new SyllabusMaterial();
+        materialWithFile.setFileUrl("/files/material1.pdf");
+        SyllabusMaterial materialWithoutFile = new SyllabusMaterial();
+        materialWithoutFile.setFileUrl(null);
+
+        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
+        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
+                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
+        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
+                .thenReturn(Optional.empty());
+        when(syllabusMaterialRepository.findBySyllabusId(1L))
+                .thenReturn(Arrays.asList(materialWithFile, materialWithoutFile));
+
+        // Act
+        syllabusController.delete(1L, null);
+
+        // Assert
+        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(fileService).deleteFiles(filesCaptor.capture());
+        assertThat(filesCaptor.getValue()).containsExactly("/files/material1.pdf");
+        verify(fileService, never()).deleteFile(anyString());
+        verify(syllabusMaterialRepository).findBySyllabusId(1L);
+        verify(syllabusMaterialRepository).deleteAllBySyllabusId(1L);
     }
 
     @Test

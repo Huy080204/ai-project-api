@@ -60,6 +60,12 @@ public class AIConstant {
     public static final Integer SUBMISSION_STATE_PENDING = 0;
     public static final Integer SUBMISSION_STATE_GRADED = 1;
 
+    public static final Integer JOB_POSTING_STATE_OPEN = 0;
+    public static final Integer JOB_POSTING_STATE_CLOSED = 1;
+
+    public static final Integer REACTION_TYPE_LIKE = 1;
+    public static final Integer REACTION_TYPE_DISLIKE = 0;
+
     private AIConstant() {
         throw new IllegalStateException("Utility class");
     }

@@ -9,9 +9,11 @@ import com.ai.api.form.company.UpdateCompanyForm;
 import com.ai.api.mapper.CompanyMapper;
 import com.ai.api.model.Company;
 import com.ai.api.repository.CompanyRepository;
+import com.ai.api.repository.JobPostingRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,6 +42,9 @@ class CompanyControllerTest {
 
     @Mock
     private FileService fileService;
+
+    @Mock
+    private JobPostingRepository jobPostingRepository;
 
     @InjectMocks
     private CompanyController companyController;
@@ -253,5 +258,23 @@ class CompanyControllerTest {
         assertThat(result.getResult()).isTrue();
         verify(fileService).deleteFile(null);
         verify(companyRepository).deleteById(1L);
+    }
+
+    @Test
+    void shouldCascadeDeleteJobPostingsBeforeDeletingCompany() {
+        // Arrange (FR-010): deleting a Company must cascade-delete its JobPostings first to
+        // avoid orphan rows / FK constraint errors.
+        Company company = new Company();
+        company.setId(1L);
+        when(companyRepository.findById(1L)).thenReturn(Optional.of(company));
+
+        // Act
+        ApiMessageDto<Void> result = companyController.delete(1L);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        InOrder inOrder = inOrder(jobPostingRepository, companyRepository);
+        inOrder.verify(jobPostingRepository).deleteAllByCompanyId(1L);
+        inOrder.verify(companyRepository).deleteById(1L);
     }
 }

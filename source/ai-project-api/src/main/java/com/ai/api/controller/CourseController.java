@@ -17,8 +17,10 @@ import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RatingRepository;
+import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.SubmissionRepository;
+import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +75,9 @@ public class CourseController extends ABasicController {
     private RatingRepository ratingRepository;
 
     @Autowired
+    private ReactionRepository reactionRepository;
+
+    @Autowired
     private ClassroomStudentRepository classroomStudentRepository;
 
     @Autowired
@@ -80,6 +85,9 @@ public class CourseController extends ABasicController {
 
     @Autowired
     private SubmissionRepository submissionRepository;
+
+    @Autowired
+    private SyllabusMaterialRepository syllabusMaterialRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -139,14 +147,17 @@ public class CourseController extends ABasicController {
         filesToDelete.addAll(syllabusRepository.findAvatarsByCourseId(id));
         filesToDelete.addAll(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(id));
         filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusCourseId(id));
+        filesToDelete.addAll(syllabusMaterialRepository.findFileUrlsBySyllabusCourseId(id));
         fileService.deleteFiles(filesToDelete);
         registrationRepository.deleteAllByClassroomCourseId(id);
         classroomStudentRepository.deleteAllByClassroomCourseId(id);
         classroomRepository.deleteAllByCourseId(id);
         submissionRepository.deleteAllBySyllabusCourseId(id);
         assignmentRepository.deleteAllBySyllabusCourseId(id);
+        syllabusMaterialRepository.deleteAllBySyllabusCourseId(id);
         syllabusRepository.deleteAllByCourseId(id);
         ratingRepository.deleteAllByCourseId(id);
+        reactionRepository.deleteAllByCourseId(id);
         courseRepository.deleteById(id);
         return makeSuccessResponse("Delete course success");
     }

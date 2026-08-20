@@ -13,10 +13,12 @@ import com.ai.api.form.syllabus.UpdateSyllabusOrderingForm;
 import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Syllabus;
+import com.ai.api.model.SyllabusMaterial;
 import com.ai.api.model.criteria.SyllabusCriteria;
 import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.SubmissionRepository;
+import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/syllabus")
@@ -70,6 +73,9 @@ public class SyllabusController extends ABasicController {
 
     @Autowired
     private SubmissionRepository submissionRepository;
+
+    @Autowired
+    private SyllabusMaterialRepository syllabusMaterialRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -153,6 +159,16 @@ public class SyllabusController extends ABasicController {
         Syllabus syllabus = syllabusRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
         Long courseId = syllabus.getCourse().getId();
+
+        List<SyllabusMaterial> syllabusMaterials = syllabusMaterialRepository.findBySyllabusId(id);
+        List<String> syllabusMaterialFiles = syllabusMaterials.stream()
+                .map(SyllabusMaterial::getFileUrl)
+                .filter(StringUtils::isNoneBlank)
+                .collect(Collectors.toList());
+        if (!syllabusMaterialFiles.isEmpty()) {
+            fileService.deleteFiles(syllabusMaterialFiles);
+        }
+        syllabusMaterialRepository.deleteAllBySyllabusId(id);
 
         if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
             // Handle lesson deletion: update parent chapter timeline and subtract from course total timeline

@@ -66,7 +66,7 @@ public class CategoryController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateCategoryForm createCategoryForm, BindingResult bindingResult) {
+    public ApiMessageDto<CategoryDto> create(@Valid @RequestBody CreateCategoryForm createCategoryForm, BindingResult bindingResult) {
         Long parentId = createCategoryForm.getParentId();
         boolean nameExists = parentId == null
                 ? categoryRepository.existsByNameAndParentIsNull(createCategoryForm.getName())
@@ -84,7 +84,7 @@ public class CategoryController extends ABasicController {
             category.setParent(parent);
         }
         categoryRepository.save(category);
-        return makeSuccessResponse("Create category success");
+        return makeSuccessResponse(categoryMapper.fromEntityToCategoryIdDto(category), "Create category success");
     }
 
     @Transactional
@@ -113,7 +113,7 @@ public class CategoryController extends ABasicController {
 
     @GetMapping(value = "/get/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_V')")
-    public ApiMessageDto<CategoryDto> get(@PathVariable("id") Long id) {
+    public ApiMessageDto<CategoryDto> get(@PathVariable Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found", ErrorCode.CATEGORY_ERROR_NOT_FOUND));
         return makeSuccessResponse(categoryMapper.fromEntityToCategoryDto(category), "Get category success");
@@ -129,7 +129,7 @@ public class CategoryController extends ABasicController {
     @Transactional
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_D')")
-    public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
+    public ApiMessageDto<Void> delete(@PathVariable Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found", ErrorCode.CATEGORY_ERROR_NOT_FOUND));
         List<Category> children = categoryRepository.findByParentIdIn(Collections.singletonList(id));

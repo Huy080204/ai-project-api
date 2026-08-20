@@ -13,6 +13,7 @@ import com.ai.api.mapper.CompanyMapper;
 import com.ai.api.model.Company;
 import com.ai.api.model.criteria.CompanyCriteria;
 import com.ai.api.repository.CompanyRepository;
+import com.ai.api.repository.JobPostingRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -42,6 +43,9 @@ public class CompanyController extends ABasicController {
 
     @Autowired
     private FileService fileService;
+
+    @Autowired
+    private JobPostingRepository jobPostingRepository;
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COM_C')")
@@ -95,6 +99,7 @@ public class CompanyController extends ABasicController {
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("[Company] Company not found", ErrorCode.COMPANY_ERROR_NOT_FOUND));
         fileService.deleteFile(company.getAvatar());
+        jobPostingRepository.deleteAllByCompanyId(id);
         companyRepository.deleteById(id);
         return makeSuccessResponse("Delete Company success");
     }

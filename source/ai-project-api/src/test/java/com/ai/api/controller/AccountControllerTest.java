@@ -6,7 +6,6 @@ import com.ai.api.exception.BadRequestException;
 import com.ai.api.exception.UnauthorizationException;
 import com.ai.api.form.account.UpdateAccountAdminForm;
 import com.ai.api.form.account.UpdateProfileAdminForm;
-import com.ai.api.jwt.BaseJwt;
 import com.ai.api.mapper.AccountMapper;
 import com.ai.api.model.Account;
 import com.ai.api.model.Group;
@@ -15,6 +14,7 @@ import com.ai.api.repository.GroupRepository;
 import com.ai.api.service.BaseApiService;
 import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
+import com.ai.api.utils.TestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -67,19 +67,12 @@ class AccountControllerTest {
     @InjectMocks
     private AccountController accountController;
 
-    private BaseJwt superAdminJwt(long accountId) {
-        BaseJwt jwt = new BaseJwt();
-        jwt.setAccountId(accountId);
-        jwt.setIsSuperAdmin(true);
-        return jwt;
-    }
-
     // --------------------------------------------------------- update-admin
 
     @Test
     void shouldDeleteOldAvatarWhenUpdateAdminAvatarPathChanges() {
         // Arrange
-        lenient().when(userService.getAddInfoFromToken()).thenReturn(superAdminJwt(1L));
+        lenient().when(userService.getAddInfoFromToken()).thenReturn(TestUtils.superAdminJwt(1L));
         BindingResult bindingResult = mock(BindingResult.class);
         UpdateAccountAdminForm form = new UpdateAccountAdminForm();
         form.setId(1L);
@@ -114,7 +107,7 @@ class AccountControllerTest {
     @Test
     void shouldNotDeleteOldAvatarWhenUpdateAdminAvatarPathIsUnchanged() {
         // Arrange
-        lenient().when(userService.getAddInfoFromToken()).thenReturn(superAdminJwt(1L));
+        lenient().when(userService.getAddInfoFromToken()).thenReturn(TestUtils.superAdminJwt(1L));
         BindingResult bindingResult = mock(BindingResult.class);
         UpdateAccountAdminForm form = new UpdateAccountAdminForm();
         form.setId(1L);
@@ -140,7 +133,7 @@ class AccountControllerTest {
     @Test
     void shouldDeleteOldAvatarWhenUpdateAdminClearsAvatarPathToNull() {
         // Arrange
-        lenient().when(userService.getAddInfoFromToken()).thenReturn(superAdminJwt(1L));
+        lenient().when(userService.getAddInfoFromToken()).thenReturn(TestUtils.superAdminJwt(1L));
         BindingResult bindingResult = mock(BindingResult.class);
         UpdateAccountAdminForm form = new UpdateAccountAdminForm();
         form.setId(1L);
@@ -173,10 +166,7 @@ class AccountControllerTest {
     @Test
     void shouldThrowUnauthorizedWhenUpdateAdminCallerIsNotSuperAdmin() {
         // Arrange
-        BaseJwt jwt = new BaseJwt();
-        jwt.setAccountId(1L);
-        jwt.setIsSuperAdmin(false);
-        when(userService.getAddInfoFromToken()).thenReturn(jwt);
+        when(userService.getAddInfoFromToken()).thenReturn(TestUtils.notSuperAdminJwt());
         BindingResult bindingResult = mock(BindingResult.class);
         UpdateAccountAdminForm form = new UpdateAccountAdminForm();
         form.setId(1L);
@@ -192,7 +182,7 @@ class AccountControllerTest {
     @Test
     void shouldDeleteOldAvatarWhenUpdateProfileAdminAvatarPathChanges() {
         // Arrange
-        when(userService.getAddInfoFromToken()).thenReturn(superAdminJwt(1L));
+        when(userService.getAddInfoFromToken()).thenReturn(TestUtils.superAdminJwt(1L));
         UpdateProfileAdminForm form = new UpdateProfileAdminForm();
         form.setFullName("Admin One");
         form.setAvatarPath("/avatar/new.png");
@@ -219,7 +209,7 @@ class AccountControllerTest {
     @Test
     void shouldNotDeleteOldAvatarWhenUpdateProfileAdminAvatarPathIsUnchanged() {
         // Arrange
-        when(userService.getAddInfoFromToken()).thenReturn(superAdminJwt(1L));
+        when(userService.getAddInfoFromToken()).thenReturn(TestUtils.superAdminJwt(1L));
         UpdateProfileAdminForm form = new UpdateProfileAdminForm();
         form.setFullName("Admin One");
         form.setAvatarPath("/avatar/same.png");
@@ -244,7 +234,7 @@ class AccountControllerTest {
     @Test
     void shouldDeleteOldAvatarWhenUpdateProfileAdminClearsAvatarPathToNull() {
         // Arrange
-        when(userService.getAddInfoFromToken()).thenReturn(superAdminJwt(1L));
+        when(userService.getAddInfoFromToken()).thenReturn(TestUtils.superAdminJwt(1L));
         UpdateProfileAdminForm form = new UpdateProfileAdminForm();
         form.setFullName("Admin One");
         form.setAvatarPath(null);
