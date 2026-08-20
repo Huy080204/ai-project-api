@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,7 +101,7 @@ public class ReactionController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('REA_L')")
-    public ApiMessageDto<ResponseListDto<List<ReactionDto>>> list(ReactionCriteria reactionCriteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<ReactionDto>>> list(ReactionCriteria reactionCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<Reaction> page = reactionRepository.findAll(reactionCriteria.getCriteria(), pageable);
         ResponseListDto<List<ReactionDto>> responseListDto =
                 makeResponseListDto(page, reactionMapper::fromEntityToReactionDtoList);
@@ -107,7 +109,7 @@ public class ReactionController extends ABasicController {
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<ReactionDto>>> publicList(ReactionCriteria reactionCriteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<ReactionDto>>> publicList(ReactionCriteria reactionCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         reactionCriteria.setStatus(AIConstant.STATUS_ACTIVE);
         Page<Reaction> page = reactionRepository.findAll(reactionCriteria.getCriteria(), pageable);
         ResponseListDto<List<ReactionDto>> responseListDto =

@@ -19,6 +19,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,7 +79,7 @@ public class SyllabusMaterialController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SM_L')")
-    public ApiMessageDto<ResponseListDto<List<SyllabusMaterialDto>>> list(SyllabusMaterialCriteria criteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<SyllabusMaterialDto>>> list(SyllabusMaterialCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<SyllabusMaterial> page = syllabusMaterialRepository.findAll(criteria.getCriteria(), pageable);
         ResponseListDto<List<SyllabusMaterialDto>> responseListDto =
                 makeResponseListDto(page, syllabusMaterialMapper::fromEntityToSyllabusMaterialDtoList);

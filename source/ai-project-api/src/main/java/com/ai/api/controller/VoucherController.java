@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,7 +97,7 @@ public class VoucherController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('VOU_L')")
-    public ApiMessageDto<ResponseListDto<List<VoucherDto>>> list(VoucherCriteria voucherCriteria, Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<VoucherDto>>> list(VoucherCriteria voucherCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<Voucher> page = voucherRepository.findAll(voucherCriteria.getCriteria(), pageable);
         ResponseListDto<List<VoucherDto>> responseListDto =
                 makeResponseListDto(page, voucherMapper::fromEntityListToVoucherDtoList);
