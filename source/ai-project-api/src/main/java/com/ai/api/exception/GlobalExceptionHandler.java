@@ -5,9 +5,10 @@
  */
 package com.ai.api.exception;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ai.api.dto.ApiMessageDto;
 import com.ai.api.dto.ApiResponse;
+import com.ai.api.form.ErrorForm;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import com.ai.api.form.ErrorForm;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public ApiMessageDto<List<ErrorForm>> exceptionHandler(Exception ex) {
-        log.error("" + ex.getMessage(), ex);
+        log.error(ex.getMessage(), ex);
         ApiMessageDto<List<ErrorForm>> apiMessageDto = new ApiMessageDto<>();
         apiMessageDto.setCode("ERROR");
         apiMessageDto.setResult(false);
@@ -94,6 +94,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler({BadRequestException.class})
     public ResponseEntity<ApiMessageDto<String>> badRequest(BadRequestException ex) {
+        log.error(ex.getMessage(), ex);
         ApiMessageDto<String> apiMessageDto = new ApiMessageDto<>();
         apiMessageDto.setResult(false);
         apiMessageDto.setCode(ex.getCode());
