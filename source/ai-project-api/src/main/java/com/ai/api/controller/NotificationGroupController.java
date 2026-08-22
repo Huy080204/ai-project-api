@@ -9,6 +9,7 @@ import com.ai.api.exception.BadRequestException;
 import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.notificationgroup.CreateNotificationGroupForm;
 import com.ai.api.form.notificationgroup.UpdateNotificationGroupForm;
+import com.ai.api.form.notificationgroup.UpdateNotificationGroupOrderingForm;
 import com.ai.api.mapper.NotificationGroupMapper;
 import com.ai.api.model.Classroom;
 import com.ai.api.model.NotificationGroup;
@@ -39,6 +40,8 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.validation.Valid;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/notification-group")
@@ -68,7 +71,7 @@ public class NotificationGroupController extends ABasicController {
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('NGR_L')")
     public ApiMessageDto<ResponseListDto<List<NotificationGroupDto>>> list(NotificationGroupCriteria notificationGroupCriteria,
-            @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(sort = "ordering", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<NotificationGroup> page = notificationGroupRepository.findAll(notificationGroupCriteria.getCriteria(), pageable);
         ResponseListDto<List<NotificationGroupDto>> responseListDto =
                 makeResponseListDto(page, notificationGroupMapper::fromEntityToNotificationGroupDtoList);
@@ -132,5 +135,24 @@ public class NotificationGroupController extends ABasicController {
         fileService.deleteFiles(Collections.singletonList(notificationGroup.getAvatar()));
         notificationGroupRepository.delete(notificationGroup);
         return makeSuccessResponse("Delete notification group success");
+    }
+
+    @PutMapping(value = "/update-ordering", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('NGR_U')")
+    @Transactional
+    public ApiMessageDto<Void> updateOrdering(@RequestBody List<@Valid UpdateNotificationGroupOrderingForm> forms, BindingResult bindingResult) {
+        List<Long> ids = forms.stream().map(UpdateNotificationGroupOrderingForm::getId).collect(Collectors.toList());
+        List<NotificationGroup> notificationGroups = notificationGroupRepository.findAllById(ids);
+        if (notificationGroups.size() != ids.stream().distinct().count()) {
+            throw new NotFoundException("Not found notification group!", ErrorCode.NOTIFICATION_GROUP_ERROR_NOT_FOUND);
+        }
+
+        Map<Long, Integer> orderingById = forms.stream()
+                .collect(Collectors.toMap(UpdateNotificationGroupOrderingForm::getId, UpdateNotificationGroupOrderingForm::getOrdering, (first, second) -> second));
+        for (NotificationGroup notificationGroup : notificationGroups) {
+            notificationGroup.setOrdering(orderingById.get(notificationGroup.getId()));
+        }
+        notificationGroupRepository.saveAll(notificationGroups);
+        return makeSuccessResponse("Update notification group ordering success");
     }
 }

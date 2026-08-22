@@ -19,4 +19,7 @@ public class NotificationGroupDto extends ABasicAdminDto {
 
     @Schema(name = "zaloUrl")
     private String zaloUrl;
+
+    @Schema(name = "ordering")
+    private Integer ordering;
 }

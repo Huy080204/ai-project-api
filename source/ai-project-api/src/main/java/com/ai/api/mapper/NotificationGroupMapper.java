@@ -39,6 +39,7 @@ public interface NotificationGroupMapper {
     @Mapping(source = "name", target = "groupName")
     @Mapping(source = "avatar", target = "avatar")
     @Mapping(source = "zaloUrl", target = "zaloUrl")
+    @Mapping(source = "ordering", target = "ordering")
     @Mapping(source = "createdDate", target = "createdDate")
     @Mapping(source = "modifiedDate", target = "modifiedDate")
     @Mapping(source = "status", target = "status")

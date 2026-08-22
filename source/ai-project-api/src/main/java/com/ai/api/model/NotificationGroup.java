@@ -27,4 +27,6 @@ public class NotificationGroup extends Auditable<String> {
     private String avatar;
 
     private String zaloUrl;
+
+    private Integer ordering = 0;
 }
