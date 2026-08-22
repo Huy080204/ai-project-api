@@ -16,6 +16,7 @@ import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
+import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
@@ -91,6 +92,9 @@ public class CourseController extends ABasicController {
     @Autowired
     private SyllabusMaterialRepository syllabusMaterialRepository;
 
+    @Autowired
+    private NotificationGroupRepository notificationGroupRepository;
+
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COU_C')")
@@ -150,9 +154,11 @@ public class CourseController extends ABasicController {
         filesToDelete.addAll(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(id));
         filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusCourseId(id));
         filesToDelete.addAll(syllabusMaterialRepository.findFileUrlsBySyllabusCourseId(id));
+        filesToDelete.addAll(notificationGroupRepository.findAvatarsByClassroomCourseId(id));
         fileService.deleteFiles(filesToDelete);
         registrationRepository.deleteAllByClassroomCourseId(id);
         classroomStudentRepository.deleteAllByClassroomCourseId(id);
+        notificationGroupRepository.deleteAllByClassroomCourseId(id);
         classroomRepository.deleteAllByCourseId(id);
         submissionRepository.deleteAllBySyllabusCourseId(id);
         assignmentRepository.deleteAllBySyllabusCourseId(id);

@@ -17,7 +17,9 @@ import com.ai.api.model.criteria.ClassroomCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
+import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RegistrationRepository;
+import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -40,6 +42,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -61,6 +64,12 @@ public class ClassroomController extends ABasicController {
 
     @Autowired
     private ClassroomStudentRepository classroomStudentRepository;
+
+    @Autowired
+    private NotificationGroupRepository notificationGroupRepository;
+
+    @Autowired
+    private FileService fileService;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -112,8 +121,12 @@ public class ClassroomController extends ABasicController {
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         Classroom classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
+        List<String> filesToDelete = new ArrayList<>();
+        filesToDelete.addAll(notificationGroupRepository.findAvatarsByClassroomId(id));
+        fileService.deleteFiles(filesToDelete);
         registrationRepository.deleteAllByClassroomId(id);
         classroomStudentRepository.deleteAllByClassroomId(id);
+        notificationGroupRepository.deleteAllByClassroomId(id);
         classroomRepository.deleteById(id);
         return makeSuccessResponse("Delete classroom success");
     }
