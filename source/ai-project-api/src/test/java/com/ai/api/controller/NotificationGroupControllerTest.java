@@ -8,6 +8,7 @@ import com.ai.api.exception.BadRequestException;
 import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.notificationgroup.CreateNotificationGroupForm;
 import com.ai.api.form.notificationgroup.UpdateNotificationGroupForm;
+import com.ai.api.form.notificationgroup.UpdateNotificationGroupOrderingForm;
 import com.ai.api.mapper.NotificationGroupMapper;
 import com.ai.api.model.Classroom;
 import com.ai.api.model.NotificationGroup;
@@ -28,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -278,5 +281,78 @@ class NotificationGroupControllerTest {
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Get auto complete notification groups success");
         assertThat(result.getData().getContent()).isSameAs(dtoList);
+    }
+
+    @Test
+    void shouldBulkUpdateOrderingWhenValid() {
+        UpdateNotificationGroupOrderingForm form1 = new UpdateNotificationGroupOrderingForm();
+        form1.setId(1L);
+        form1.setOrdering(2);
+        UpdateNotificationGroupOrderingForm form2 = new UpdateNotificationGroupOrderingForm();
+        form2.setId(2L);
+        form2.setOrdering(1);
+
+        NotificationGroup entity1 = new NotificationGroup();
+        entity1.setId(1L);
+        NotificationGroup entity2 = new NotificationGroup();
+        entity2.setId(2L);
+
+        when(notificationGroupRepository.findAllById(Arrays.asList(1L, 2L))).thenReturn(Arrays.asList(entity1, entity2));
+
+        ApiMessageDto<Void> result = controller.updateOrdering(Arrays.asList(form1, form2), null);
+
+        assertThat(result.getResult()).isTrue();
+        assertThat(entity1.getOrdering()).isEqualTo(2);
+        assertThat(entity2.getOrdering()).isEqualTo(1);
+        verify(notificationGroupRepository).saveAll(Arrays.asList(entity1, entity2));
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenUpdateOrderingIncludesMissingId() {
+        UpdateNotificationGroupOrderingForm form1 = new UpdateNotificationGroupOrderingForm();
+        form1.setId(1L);
+        form1.setOrdering(2);
+        UpdateNotificationGroupOrderingForm form2 = new UpdateNotificationGroupOrderingForm();
+        form2.setId(2L);
+        form2.setOrdering(1);
+
+        NotificationGroup entity1 = new NotificationGroup();
+        entity1.setId(1L);
+
+        when(notificationGroupRepository.findAllById(Arrays.asList(1L, 2L))).thenReturn(Collections.singletonList(entity1));
+
+        assertThatThrownBy(() -> controller.updateOrdering(Arrays.asList(form1, form2), null))
+                .isInstanceOf(NotFoundException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.NOTIFICATION_GROUP_ERROR_NOT_FOUND);
+
+        verify(notificationGroupRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void shouldBulkUpdateOrderingWhenDuplicateIdsProvided() {
+        UpdateNotificationGroupOrderingForm form1 = new UpdateNotificationGroupOrderingForm();
+        form1.setId(1L);
+        form1.setOrdering(2);
+        UpdateNotificationGroupOrderingForm form2 = new UpdateNotificationGroupOrderingForm();
+        form2.setId(1L);
+        form2.setOrdering(5);
+
+        NotificationGroup entity1 = new NotificationGroup();
+        entity1.setId(1L);
+
+        when(notificationGroupRepository.findAllById(Arrays.asList(1L, 1L)))
+                .thenReturn(Collections.singletonList(entity1));
+
+        ApiMessageDto<Void> result = controller.updateOrdering(Arrays.asList(form1, form2), null);
+
+        assertThat(result.getResult()).isTrue();
+        verify(notificationGroupRepository).saveAll(anyList());
+    }
+
+    @Test
+    void shouldDefaultOrderingToZero() {
+        NotificationGroup entity = new NotificationGroup();
+
+        assertThat(entity.getOrdering()).isEqualTo(0);
     }
 }
