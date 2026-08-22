@@ -164,4 +164,10 @@ public class ErrorCode {
      * Syllabus material error code
      */
     public static final String SYLLABUS_MATERIAL_ERROR_NOT_FOUND = "ERROR-SYLLABUS-MATERIAL-000";
+
+    /**
+     * Notification group error code
+     */
+    public static final String NOTIFICATION_GROUP_ERROR_NOT_FOUND = "ERROR-NOTIFICATION-GROUP-000";
+    public static final String NOTIFICATION_GROUP_ERROR_NAME_DUPLICATED = "ERROR-NOTIFICATION-GROUP-001";
 }

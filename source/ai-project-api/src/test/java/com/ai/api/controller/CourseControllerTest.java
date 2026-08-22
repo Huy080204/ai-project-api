@@ -16,6 +16,7 @@ import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
+import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
@@ -101,6 +102,9 @@ class CourseControllerTest {
 
     @Mock
     private SyllabusMaterialRepository syllabusMaterialRepository;
+
+    @Mock
+    private NotificationGroupRepository notificationGroupRepository;
 
     @InjectMocks
     private CourseController courseController;
@@ -436,6 +440,34 @@ class CourseControllerTest {
         InOrder inOrder = inOrder(syllabusMaterialRepository, syllabusRepository);
         inOrder.verify(syllabusMaterialRepository).deleteAllBySyllabusCourseId(1L);
         inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldCascadeDeleteNotificationGroupsWhenCourseDeleted() {
+        // Arrange - FR-009/FR-010: deleting a Course must also cascade-delete NotificationGroup
+        // rows scoped to every Classroom under it, batching their avatars into the existing
+        // fileService.deleteFiles(...) call and deleting the rows BEFORE
+        // classroomRepository.deleteAllByCourseId's own cascade.
+        Course course = new Course();
+        course.setId(1L);
+        course.setAvatar("/avatar/course.png");
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
+        when(notificationGroupRepository.findAvatarsByClassroomCourseId(1L))
+                .thenReturn(Collections.singletonList("/avatar/notification-group.png"));
+
+        // Act
+        courseController.delete(1L);
+
+        // Assert
+        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(fileService).deleteFiles(filesCaptor.capture());
+        assertThat(filesCaptor.getValue()).contains("/avatar/notification-group.png");
+
+        InOrder inOrder = inOrder(notificationGroupRepository, classroomRepository);
+        inOrder.verify(notificationGroupRepository).deleteAllByClassroomCourseId(1L);
+        inOrder.verify(classroomRepository).deleteAllByCourseId(1L);
     }
 
     // ------------------------------------------------------------ auto-complete
