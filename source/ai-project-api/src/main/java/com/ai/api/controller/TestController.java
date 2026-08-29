@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -32,5 +33,12 @@ public class TestController extends ABasicController {
     public ApiMessageDto<Void> testDeviceNotFound() {
         log.error("Device not found error log at {}", Instant.now());
         return makeSuccessResponse("Device not found error log triggered");
+    }
+
+    @GetMapping(value = "/test-slow-response", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ApiMessageDto<Void> testSlowResponse(@RequestParam(value = "sleepMs", defaultValue = "300") long sleepMs) throws InterruptedException {
+        Thread.sleep(sleepMs);
+        log.warn("Slow response test triggered, sleepMs={} at {}", sleepMs, Instant.now());
+        return makeSuccessResponse("Slow response log triggered, sleepMs=" + sleepMs);
     }
 }
