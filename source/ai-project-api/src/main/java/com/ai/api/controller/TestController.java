@@ -21,4 +21,16 @@ public class TestController extends ABasicController {
         log.error("Test error log at {}", Instant.now());
         return makeSuccessResponse("Test error log triggered");
     }
+
+    @GetMapping(value = "/test-out-of-memory", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ApiMessageDto<Void> testOutOfMemory() {
+        log.error("OutOfMemory error log at {}", Instant.now());
+        return makeSuccessResponse("OutOfMemory error log triggered");
+    }
+
+    @GetMapping(value = "/test-device-not-found", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ApiMessageDto<Void> testDeviceNotFound() {
+        log.error("Device not found error log at {}", Instant.now());
+        return makeSuccessResponse("Device not found error log triggered");
+    }
 }
