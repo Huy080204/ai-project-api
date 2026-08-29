@@ -23,7 +23,7 @@ public class LogInterceptor implements HandlerInterceptor {
         }
         long startTime = System.currentTimeMillis();
         request.setAttribute("startTime", startTime);
-        log.debug("Starting call url: [" + getUrl(request) + "]");
+        log.debug("Starting call url: [{}]", getUrl(request));
         return true;
     }
 
@@ -34,11 +34,10 @@ public class LogInterceptor implements HandlerInterceptor {
         long startTime = (Long) request.getAttribute("startTime");
         long endTime = System.currentTimeMillis();
         long executeTime = endTime - startTime;
-        log.debug("Complete [" + getUrl(request) + "] executeTime : " + executeTime + "ms");
+        log.debug("Complete [{}] executeTime : {}ms", getUrl(request), executeTime);
 
         if (ex != null) {
-            log.error("afterCompletion>> " + ex.getMessage());
-
+            log.error("afterCompletion>> {}", ex.getMessage());
         }
     }
 
