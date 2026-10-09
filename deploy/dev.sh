@@ -7,7 +7,7 @@ PORT=1000
 
 echo "Build source..."
 cd ../source/ai-project-api
-mvn clean package -Dmaven.test.skip dependency:copy-dependencies -DoutputDirectory=target/lib -DincludeScope=runtime
+mvn clean package -Dmaven.test.skip
 cd ../../deploy
 
 echo "Update config..."
@@ -16,7 +16,6 @@ rm -rf release
 mkdir release
 
 cp ../source/ai-project-api/target/ai-project-api-0.0.1.jar release/app.jar
-cp -r ../source/ai-project-api/target/lib release/lib
 
 cp config/* release/
 rm -rf release/application-prod.properties
