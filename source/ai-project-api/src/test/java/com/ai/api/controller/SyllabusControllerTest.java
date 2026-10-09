@@ -13,19 +13,14 @@ import com.ai.api.form.syllabus.UpdateSyllabusOrderingForm;
 import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Syllabus;
-import com.ai.api.model.SyllabusMaterial;
 import com.ai.api.model.criteria.SyllabusCriteria;
-import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.SubmissionRepository;
-import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -44,9 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -75,15 +68,6 @@ class SyllabusControllerTest {
 
     @Mock
     private FileService fileService;
-
-    @Mock
-    private AssignmentRepository assignmentRepository;
-
-    @Mock
-    private SubmissionRepository submissionRepository;
-
-    @Mock
-    private SyllabusMaterialRepository syllabusMaterialRepository;
 
     @InjectMocks
     private SyllabusController syllabusController;
@@ -166,7 +150,7 @@ class SyllabusControllerTest {
         when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
 
         // Act
-        ApiMessageDto<SyllabusDto> result = syllabusController.create(form, bindingResult);
+        ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
 
         // Assert - a Chapter create never triggers a course-total recompute (Lesson rows,
         // never Chapter rows, are what the recompute sums over).
@@ -194,7 +178,7 @@ class SyllabusControllerTest {
                 .thenReturn(Optional.of(chapter));
 
         // Act
-        ApiMessageDto<SyllabusDto> result = syllabusController.create(form, bindingResult);
+        ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -515,40 +499,6 @@ class SyllabusControllerTest {
     }
 
     @Test
-    void shouldCascadeDeleteSyllabusMaterialsWhenSyllabusDeleted() {
-        // Arrange - regression test (FR-006): deleting a Syllabus must cascade-delete its
-        // SyllabusMaterial children, batching the file cleanup for the non-blank fileUrl child
-        // only (never for the blank one) into a single fileService.deleteFiles call.
-        Course course = course(1L);
-        Syllabus chapter = chapterSyllabus(1L, course, 20);
-        chapter.setOrdering(1);
-
-        SyllabusMaterial materialWithFile = new SyllabusMaterial();
-        materialWithFile.setFileUrl("/files/material1.pdf");
-        SyllabusMaterial materialWithoutFile = new SyllabusMaterial();
-        materialWithoutFile.setFileUrl(null);
-
-        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
-        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
-                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
-        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
-                .thenReturn(Optional.empty());
-        when(syllabusMaterialRepository.findBySyllabusId(1L))
-                .thenReturn(Arrays.asList(materialWithFile, materialWithoutFile));
-
-        // Act
-        syllabusController.delete(1L, null);
-
-        // Assert
-        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(fileService).deleteFiles(filesCaptor.capture());
-        assertThat(filesCaptor.getValue()).containsExactly("/files/material1.pdf");
-        verify(fileService, never()).deleteFile(anyString());
-        verify(syllabusMaterialRepository).findBySyllabusId(1L);
-        verify(syllabusMaterialRepository).deleteAllBySyllabusId(1L);
-    }
-
-    @Test
     void shouldRecomputeChapterTimelineWhenDeletingLessonWithChapterIdParam() {
         // Arrange - deleting a lesson with a chapterId query param subtracts its timeline from
         // that chapter, then the course total is recomputed.
@@ -619,59 +569,6 @@ class SyllabusControllerTest {
 
         // Assert
         verify(fileService, never()).deleteFile(any());
-    }
-
-    @Test
-    void shouldDeleteAssignmentChildrenBeforeDeletingLessonSyllabusWithAssignmentChildren() {
-        // Arrange - regression test (FR-006): deleting a Lesson-kind Syllabus with Assignment
-        // children asserts that assignmentRepository.deleteAllBySyllabusId is called BEFORE
-        // syllabusRepository.deleteById. The file attachment URLs are collected but deletion is
-        // deferred to T005 when controller adds the batching logic.
-        Course course = course(1L);
-        Syllabus chapter = chapterSyllabus(5L, course, 0);
-        Syllabus lesson = lessonSyllabus(1L, course, 20);
-        lesson.setAvatar("/avatar/lesson.png");
-
-        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(lesson));
-        when(syllabusRepository.findById(5L)).thenReturn(Optional.of(chapter));
-        when(assignmentRepository.findFileAttachmentUrlsBySyllabusId(1L))
-                .thenReturn(Arrays.asList("/files/assignment1.pdf", "/files/assignment2.pdf"));
-
-        // Act
-        syllabusController.delete(1L, 5L); // provide valid chapterId
-
-        // Assert - verify cascade delete order: assignments deleted before syllabus
-        InOrder inOrder = inOrder(assignmentRepository, syllabusRepository);
-        inOrder.verify(assignmentRepository).deleteAllBySyllabusId(1L);
-        inOrder.verify(syllabusRepository).deleteById(1L);
-    }
-
-    @Test
-    void shouldDeleteAssignmentChildrenBeforeDeletingChapterSyllabusWithAssignmentChildren() {
-        // Arrange - regression test (FR-006): deleting a Chapter-kind Syllabus with Assignment
-        // children asserts that assignmentRepository.deleteAllBySyllabusId is called BEFORE
-        // syllabusRepository.deleteById. The file attachment URLs are collected but deletion is
-        // deferred to T005 when controller adds the batching logic.
-        Course course = course(1L);
-        Syllabus chapter = chapterSyllabus(1L, course, 0);
-        chapter.setOrdering(1);
-        chapter.setAvatar("/avatar/chapter.png");
-
-        when(syllabusRepository.findById(1L)).thenReturn(Optional.of(chapter));
-        when(syllabusRepository.findTopByCourseIdAndKindAndOrderingLessThanOrderByOrderingDesc(
-                1L, AIConstant.SYLLABUS_KIND_CHAPTER, 1)).thenReturn(Optional.empty());
-        when(syllabusRepository.findTopByCourseIdAndOrderingGreaterThanOrderByOrderingAsc(1L, 1))
-                .thenReturn(Optional.empty());
-        when(assignmentRepository.findFileAttachmentUrlsBySyllabusId(1L))
-                .thenReturn(Arrays.asList("/files/assignment1.pdf"));
-
-        // Act
-        syllabusController.delete(1L, null);
-
-        // Assert - verify cascade delete order: assignments deleted before syllabus
-        InOrder inOrder = inOrder(assignmentRepository, syllabusRepository);
-        inOrder.verify(assignmentRepository).deleteAllBySyllabusId(1L);
-        inOrder.verify(syllabusRepository).deleteById(1L);
     }
 
     // ------------------------------------------------------------ delete chapter

@@ -16,8 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,13 +48,13 @@ public class TagController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_C')")
     @Transactional
-    public ApiMessageDto<TagDto> create(@Valid @RequestBody CreateTagForm createTagForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateTagForm createTagForm, BindingResult bindingResult) {
         if (tagRepository.existsByNameIgnoreCase(createTagForm.getName())) {
             throw new BadRequestException("Tag already exist", ErrorCode.TAG_ERROR_IS_EXISTED);
         }
         Tag tag = tagMapper.fromCreateFormToEntity(createTagForm);
         tagRepository.save(tag);
-        return makeSuccessResponse(tagMapper.fromEntityToTagIdDto(tag), "Create tag success");
+        return makeSuccessResponse("Create tag success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -96,7 +94,7 @@ public class TagController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_L')")
-    public ApiMessageDto<ResponseListDto<List<TagDto>>> list(TagCriteria tagCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<TagDto>>> list(TagCriteria tagCriteria, Pageable pageable) {
         Page<Tag> page = tagRepository.findAll(tagCriteria.getCriteria(), pageable);
         ResponseListDto<List<TagDto>> responseListDto =
                 makeResponseListDto(page, tagMapper::fromEntityListToTagDtoList);

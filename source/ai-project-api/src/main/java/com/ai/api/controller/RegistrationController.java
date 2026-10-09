@@ -15,21 +15,17 @@ import com.ai.api.model.Classroom;
 import com.ai.api.model.Registration;
 import com.ai.api.model.Student;
 import com.ai.api.model.Syllabus;
-import com.ai.api.model.Voucher;
 import com.ai.api.model.criteria.RegistrationCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
 import com.ai.api.repository.SyllabusRepository;
-import com.ai.api.service.VoucherService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +40,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -76,12 +71,9 @@ public class RegistrationController extends ABasicController {
     @Autowired
     private SyllabusMapper syllabusMapper;
 
-    @Autowired
-    private VoucherService voucherService;
-
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<RegistrationDto> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
         Classroom classroom = classroomRepository.findById(createRegistrationForm.getClassroomId())
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
         if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState()) && !AIConstant.CLASSROOM_STATE_ACTIVE.equals(classroom.getState())) {
@@ -105,20 +97,13 @@ public class RegistrationController extends ABasicController {
 
         Registration registration = registrationMapper.fromCreateRegistrationFormToEntity(createRegistrationForm);
         registration.setClassroom(classroom);
-        if (createRegistrationForm.getVoucherId() != null) {
-            BigDecimal orderValue = classroom.getPrice() != null ? classroom.getPrice() : BigDecimal.ZERO;
-            Voucher voucher = voucherService.validateAndApplyVoucher(createRegistrationForm.getVoucherId(), orderValue);
-            BigDecimal discountAmount = voucherService.calculateDiscountAmount(voucher, orderValue);
-            registration.setVoucher(voucher);
-            registration.setDiscountAmount(discountAmount);
-        }
         registrationRepository.save(registration);
-        return makeSuccessResponse(registrationMapper.fromEntityToRegistrationIdDto(registration), "Create registration success");
+        return makeSuccessResponse("Create registration success");
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('REG_L')")
-    public ApiMessageDto<ResponseListDto<List<RegistrationDto>>> list(RegistrationCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<RegistrationDto>>> list(RegistrationCriteria criteria, Pageable pageable) {
         Page<Registration> registrations = registrationRepository.findAll(criteria.getSpecification(), pageable);
         return makeSuccessResponse(makeResponseListDto(registrations, registrationMapper::fromEntityToRegistrationDtoList), "List registration success");
     }

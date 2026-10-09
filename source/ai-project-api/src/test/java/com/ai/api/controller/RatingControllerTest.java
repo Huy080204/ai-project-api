@@ -126,7 +126,7 @@ class RatingControllerTest {
         when(ratingMapper.fromFormToEntity(form)).thenReturn(rating);
 
         // Act
-        ApiMessageDto<RatingDto> result = ratingController.create(form, bindingResult);
+        ApiMessageDto<Void> result = ratingController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();

@@ -54,9 +54,4 @@ public interface GroupMapper {
     @IterableMapping(elementTargetType = GroupDto.class, qualifiedByName = "fromEntityToGroupDtoShort")
     @Named("fromEntityToGroupDtoList")
     List<GroupDto> fromEntityToGroupDtoList(List<Group> groups);
-
-    @Mapping(source = "id", target = "id")
-    @BeanMapping(ignoreByDefault = true)
-    @Named("fromEntityToGroupIdDto")
-    GroupDto fromEntityToGroupIdDto(Group group);
 }

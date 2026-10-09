@@ -59,9 +59,4 @@ public interface ClassroomMapper {
     @IterableMapping(elementTargetType = ClassroomDto.class, qualifiedByName = "fromEntityToClassroomDtoAutoComplete")
     @Named("fromEntityToClassroomDtoAutoCompleteList")
     List<ClassroomDto> fromEntityToClassroomDtoAutoCompleteList(List<Classroom> classrooms);
-
-    @Mapping(source = "id", target = "id")
-    @BeanMapping(ignoreByDefault = true)
-    @Named("fromEntityToClassroomIdDto")
-    ClassroomDto fromEntityToClassroomIdDto(Classroom classroom);
 }

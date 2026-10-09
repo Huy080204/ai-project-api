@@ -12,16 +12,10 @@ import com.ai.api.form.course.UpdateCourseForm;
 import com.ai.api.mapper.CourseMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.criteria.CourseCriteria;
-import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
-import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RatingRepository;
-import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
-import com.ai.api.repository.SubmissionRepository;
-import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
@@ -80,31 +74,13 @@ class CourseControllerTest {
     private ClassroomRepository classroomRepository;
 
     @Mock
-    private ClassroomStudentRepository classroomStudentRepository;
-
-    @Mock
     private SyllabusRepository syllabusRepository;
-
-    @Mock
-    private AssignmentRepository assignmentRepository;
 
     @Mock
     private RegistrationRepository registrationRepository;
 
     @Mock
     private RatingRepository ratingRepository;
-
-    @Mock
-    private ReactionRepository reactionRepository;
-
-    @Mock
-    private SubmissionRepository submissionRepository;
-
-    @Mock
-    private SyllabusMaterialRepository syllabusMaterialRepository;
-
-    @Mock
-    private NotificationGroupRepository notificationGroupRepository;
 
     @InjectMocks
     private CourseController courseController;
@@ -140,7 +116,7 @@ class CourseControllerTest {
         when(courseMapper.fromCreateCourseFormToEntity(form)).thenReturn(course);
 
         // Act
-        ApiMessageDto<CourseDto> result = courseController.create(form, bindingResult);
+        ApiMessageDto<Void> result = courseController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -310,7 +286,6 @@ class CourseControllerTest {
         verify(syllabusRepository, never()).deleteAllByCourseId(any());
         verify(registrationRepository, never()).deleteAllByClassroomCourseId(any());
         verify(ratingRepository, never()).deleteAllByCourseId(any());
-        verify(reactionRepository, never()).deleteAllByCourseId(any());
     }
 
     @Test
@@ -342,10 +317,6 @@ class CourseControllerTest {
         InOrder ratingInOrder = inOrder(ratingRepository, courseRepository);
         ratingInOrder.verify(ratingRepository).deleteAllByCourseId(1L);
         ratingInOrder.verify(courseRepository).deleteById(1L);
-
-        InOrder reactionInOrder = inOrder(reactionRepository, courseRepository);
-        reactionInOrder.verify(reactionRepository).deleteAllByCourseId(1L);
-        reactionInOrder.verify(courseRepository).deleteById(1L);
     }
 
     @Test
@@ -387,87 +358,6 @@ class CourseControllerTest {
         verify(fileService).deleteFiles(filesCaptor.capture());
         assertThat(filesCaptor.getValue()).isEmpty();
         verify(courseRepository).deleteById(1L);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldDeleteAssignmentChildrenBeforeDeletingCourseWithAssignmentDescendants() {
-        // Arrange - regression test (FR-007): deleting a Course with Syllabus→Assignment
-        // descendants asserts that assignmentRepository.deleteAllBySyllabusCourseId is called
-        // BEFORE syllabusRepository.deleteAllByCourseId. The file attachment URLs collection and
-        // batched deletion is deferred to T005 when controller adds the aggregation logic.
-        Course course = new Course();
-        course.setId(1L);
-        course.setAvatar("/avatar/course.png");
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.findAvatarsByCourseId(1L))
-                .thenReturn(Arrays.asList("/avatar/chapter1.png", "/avatar/lesson1.png"));
-        when(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(1L))
-                .thenReturn(Arrays.asList("/files/assignment1.pdf", "/files/assignment2.pdf"));
-
-        // Act
-        courseController.delete(1L);
-
-        // Assert - verify cascade delete order: assignments deleted before syllabuses
-        InOrder inOrder = inOrder(assignmentRepository, syllabusRepository);
-        inOrder.verify(assignmentRepository).deleteAllBySyllabusCourseId(1L);
-        inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldCascadeDeleteSyllabusMaterialsWhenCourseDeleted() {
-        // Arrange - regression test (FR-007): deleting a Course must also cascade-delete
-        // Syllabus→SyllabusMaterial descendants, batching their file URLs into the existing
-        // fileService.deleteFiles(...) call and deleting the rows before syllabusRepository's
-        // own deleteAllByCourseId cascade.
-        Course course = new Course();
-        course.setId(1L);
-        course.setAvatar("/avatar/course.png");
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
-        when(syllabusMaterialRepository.findFileUrlsBySyllabusCourseId(1L))
-                .thenReturn(Arrays.asList("/files/material1.pdf"));
-
-        // Act
-        courseController.delete(1L);
-
-        // Assert
-        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(fileService).deleteFiles(filesCaptor.capture());
-        assertThat(filesCaptor.getValue()).contains("/files/material1.pdf");
-
-        InOrder inOrder = inOrder(syllabusMaterialRepository, syllabusRepository);
-        inOrder.verify(syllabusMaterialRepository).deleteAllBySyllabusCourseId(1L);
-        inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldCascadeDeleteNotificationGroupsWhenCourseDeleted() {
-        // Arrange - FR-009/FR-010: deleting a Course must also cascade-delete NotificationGroup
-        // rows scoped to every Classroom under it, batching their avatars into the existing
-        // fileService.deleteFiles(...) call and deleting the rows BEFORE
-        // classroomRepository.deleteAllByCourseId's own cascade.
-        Course course = new Course();
-        course.setId(1L);
-        course.setAvatar("/avatar/course.png");
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
-        when(notificationGroupRepository.findAvatarsByClassroomCourseId(1L))
-                .thenReturn(Collections.singletonList("/avatar/notification-group.png"));
-
-        // Act
-        courseController.delete(1L);
-
-        // Assert
-        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(fileService).deleteFiles(filesCaptor.capture());
-        assertThat(filesCaptor.getValue()).contains("/avatar/notification-group.png");
-
-        InOrder inOrder = inOrder(notificationGroupRepository, classroomRepository);
-        inOrder.verify(notificationGroupRepository).deleteAllByClassroomCourseId(1L);
-        inOrder.verify(classroomRepository).deleteAllByCourseId(1L);
     }
 
     // ------------------------------------------------------------ auto-complete

@@ -17,9 +17,7 @@ import com.ai.api.model.criteria.ClassroomCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RegistrationRepository;
-import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -75,12 +73,6 @@ class ClassroomControllerTest {
     private ClassroomStudentRepository classroomStudentRepository;
 
     @Mock
-    private NotificationGroupRepository notificationGroupRepository;
-
-    @Mock
-    private FileService fileService;
-
-    @Mock
     private ClassroomMapper classroomMapper;
 
     @Mock
@@ -130,7 +122,7 @@ class ClassroomControllerTest {
         when(classroomMapper.fromCreateClassroomFormToEntity(form)).thenReturn(classroom);
 
         // Act
-        ApiMessageDto<ClassroomDto> result = classroomController.create(form, bindingResult);
+        ApiMessageDto<Void> result = classroomController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -262,8 +254,6 @@ class ClassroomControllerTest {
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
         when(classroomRepository.findById(10L)).thenReturn(Optional.of(classroom));
-        when(notificationGroupRepository.findAvatarsByClassroomId(10L))
-                .thenReturn(Collections.singletonList("/avatar/notification-group.png"));
 
         // Act
         ApiMessageDto<Void> result = classroomController.delete(10L);
@@ -278,32 +268,23 @@ class ClassroomControllerTest {
         InOrder classroomStudentInOrder = inOrder(classroomStudentRepository, classroomRepository);
         classroomStudentInOrder.verify(classroomStudentRepository).deleteAllByClassroomId(10L);
         classroomStudentInOrder.verify(classroomRepository).deleteById(10L);
-
-        // FR-009/FR-010: NotificationGroup rows scoped to this classroom must be cascade-deleted,
-        // and their avatars batched into fileService.deleteFiles(...) before the classroom row
-        // itself is removed.
-        InOrder notificationGroupInOrder = inOrder(notificationGroupRepository, classroomRepository);
-        notificationGroupInOrder.verify(notificationGroupRepository).deleteAllByClassroomId(10L);
-        notificationGroupInOrder.verify(classroomRepository).deleteById(10L);
-        verify(fileService).deleteFiles(Collections.singletonList("/avatar/notification-group.png"));
     }
 
     @Test
-    void shouldDeleteClassroomSuccessfullyWhenStateNotPending() {
-        // Arrange - deletion is no longer blocked by state (business rule dropped)
+    void shouldThrowBadRequestWhenDeleteClassroomStateNotPending() {
+        // Arrange
         Classroom classroom = new Classroom();
         classroom.setId(11L);
         classroom.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
         when(classroomRepository.findById(11L)).thenReturn(Optional.of(classroom));
 
-        // Act
-        ApiMessageDto<Void> result = classroomController.delete(11L);
-
-        // Assert
-        assertThat(result.getResult()).isTrue();
-        verify(classroomRepository).deleteById(11L);
-        verify(registrationRepository).deleteAllByClassroomId(11L);
-        verify(classroomStudentRepository).deleteAllByClassroomId(11L);
+        // Act + Assert
+        assertThatThrownBy(() -> classroomController.delete(11L))
+                .isInstanceOfSatisfying(BadRequestException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.CLASSROOM_ERROR_UNABLE_DELETE));
+        verify(classroomRepository, never()).deleteById(any());
+        verify(registrationRepository, never()).deleteAllByClassroomId(any());
+        verify(classroomStudentRepository, never()).deleteAllByClassroomId(any());
     }
 
     // ------------------------------------------------------------ auto-complete

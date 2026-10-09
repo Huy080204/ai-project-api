@@ -22,7 +22,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.BindingResult;
@@ -49,7 +48,7 @@ public class GroupController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_C')")
-    public ApiMessageDto<GroupDto> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
         }
@@ -68,7 +67,7 @@ public class GroupController extends ABasicController {
         group.setStatus(AIConstant.STATUS_ACTIVE);
         group.setPermissions(permissions);
         groupRepository.save(group);
-        return makeSuccessResponse(groupMapper.fromEntityToGroupIdDto(group), "Create Group success");
+        return makeSuccessResponse("Create Group success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -110,7 +109,7 @@ public class GroupController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_L')")
-    public ApiMessageDto<ResponseListDto<List<GroupDto>>> list(GroupCriteria groupCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<GroupDto>>> list(GroupCriteria groupCriteria, Pageable pageable) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed list group.");
         }

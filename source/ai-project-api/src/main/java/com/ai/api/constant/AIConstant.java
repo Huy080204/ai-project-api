@@ -46,26 +46,6 @@ public class AIConstant {
     public static final int TAG_NAME_MAX_LENGTH = 100;
     public static final int TAG_COLOR_CODE_MAX_LENGTH = 7;
 
-    public static final Integer VOUCHER_TYPE_PERCENT = 1;
-    public static final Integer VOUCHER_TYPE_FIXED_AMOUNT = 2;
-
-    public static final Integer VOUCHER_STATE_PENDING = 0;
-    public static final Integer VOUCHER_STATE_ACTIVE = 1;
-    public static final Integer VOUCHER_STATE_DONE = 2;
-
-    public static final Integer ASSIGNMENT_STATE_DRAFT = 0;
-    public static final Integer ASSIGNMENT_STATE_PUBLISHED = 1;
-    public static final Integer ASSIGNMENT_STATE_CLOSED = 2;
-
-    public static final Integer SUBMISSION_STATE_PENDING = 0;
-    public static final Integer SUBMISSION_STATE_GRADED = 1;
-
-    public static final Integer JOB_POSTING_STATE_OPEN = 0;
-    public static final Integer JOB_POSTING_STATE_CLOSED = 1;
-
-    public static final Integer REACTION_TYPE_LIKE = 1;
-    public static final Integer REACTION_TYPE_DISLIKE = 0;
-
     private AIConstant() {
         throw new IllegalStateException("Utility class");
     }

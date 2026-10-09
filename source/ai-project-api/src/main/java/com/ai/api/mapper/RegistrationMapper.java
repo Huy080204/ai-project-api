@@ -14,7 +14,7 @@ import org.mapstruct.ReportingPolicy;
 import java.util.List;
 
 @Mapper(componentModel = "spring",
-        uses = {ClassroomMapper.class, VoucherMapper.class},
+        uses = {ClassroomMapper.class},
         unmappedTargetPolicy = ReportingPolicy.IGNORE,
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface RegistrationMapper {
@@ -32,8 +32,6 @@ public interface RegistrationMapper {
     @Mapping(source = "email", target = "email")
     @Mapping(source = "phone", target = "phone")
     @Mapping(source = "message", target = "message")
-    @Mapping(source = "voucher", target = "voucher", qualifiedByName = "fromEntityToVoucherDto")
-    @Mapping(source = "discountAmount", target = "discountAmount")
     @Mapping(source = "createdDate", target = "createdDate")
     @Mapping(source = "modifiedDate", target = "modifiedDate")
     @Mapping(source = "status", target = "status")
@@ -44,9 +42,4 @@ public interface RegistrationMapper {
     @IterableMapping(elementTargetType = RegistrationDto.class, qualifiedByName = "fromEntityToRegistrationDto")
     @Named("fromEntityToRegistrationDtoList")
     List<RegistrationDto> fromEntityToRegistrationDtoList(List<Registration> registrations);
-
-    @Mapping(source = "id", target = "id")
-    @BeanMapping(ignoreByDefault = true)
-    @Named("fromEntityToRegistrationIdDto")
-    RegistrationDto fromEntityToRegistrationIdDto(Registration registration);
 }

@@ -74,9 +74,4 @@ public interface MentorMapper {
     @IterableMapping(elementTargetType = MentorDto.class, qualifiedByName = "fromEntityToMentorAutoCompleteDto")
     @Named("fromEntityToMentorAutoCompleteDtoList")
     List<MentorDto> fromEntityToMentorAutoCompleteDtoList(List<Mentor> mentors);
-
-    @Mapping(source = "id", target = "id")
-    @BeanMapping(ignoreByDefault = true)
-    @Named("fromEntityToMentorIdDto")
-    MentorDto fromEntityToMentorIdDto(Mentor mentor);
 }

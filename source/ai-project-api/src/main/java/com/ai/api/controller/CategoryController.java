@@ -1,6 +1,5 @@
 package com.ai.api.controller;
 
-import com.ai.api.constant.AIConstant;
 import com.ai.api.dto.ApiMessageDto;
 import com.ai.api.dto.ErrorCode;
 import com.ai.api.dto.ResponseListDto;
@@ -15,16 +14,12 @@ import com.ai.api.mapper.CategoryMapper;
 import com.ai.api.model.Category;
 import com.ai.api.model.criteria.CategoryCriteria;
 import com.ai.api.repository.CategoryRepository;
-import com.ai.api.repository.NewsRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,13 +57,10 @@ public class CategoryController extends ABasicController {
     @Autowired
     private FileService fileService;
 
-    @Autowired
-    private NewsRepository newsRepository;
-
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_C')")
-    public ApiMessageDto<CategoryDto> create(@Valid @RequestBody CreateCategoryForm createCategoryForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateCategoryForm createCategoryForm, BindingResult bindingResult) {
         Long parentId = createCategoryForm.getParentId();
         boolean nameExists = parentId == null
                 ? categoryRepository.existsByNameAndParentIsNull(createCategoryForm.getName())
@@ -86,7 +78,7 @@ public class CategoryController extends ABasicController {
             category.setParent(parent);
         }
         categoryRepository.save(category);
-        return makeSuccessResponse(categoryMapper.fromEntityToCategoryIdDto(category), "Create category success");
+        return makeSuccessResponse("Create category success");
     }
 
     @Transactional
@@ -115,7 +107,7 @@ public class CategoryController extends ABasicController {
 
     @GetMapping(value = "/get/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_V')")
-    public ApiMessageDto<CategoryDto> get(@PathVariable Long id) {
+    public ApiMessageDto<CategoryDto> get(@PathVariable("id") Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found", ErrorCode.CATEGORY_ERROR_NOT_FOUND));
         return makeSuccessResponse(categoryMapper.fromEntityToCategoryDto(category), "Get category success");
@@ -123,7 +115,7 @@ public class CategoryController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_L')")
-    public ApiMessageDto<ResponseListDto<List<CategoryDto>>> list(CategoryCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<CategoryDto>>> list(CategoryCriteria criteria, Pageable pageable) {
         Page<Category> categories = categoryRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(categories, categoryMapper::fromEntityToCategoryDtoList), "List category success");
     }
@@ -131,17 +123,10 @@ public class CategoryController extends ABasicController {
     @Transactional
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_D')")
-    public ApiMessageDto<Void> delete(@PathVariable Long id) {
+    public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found", ErrorCode.CATEGORY_ERROR_NOT_FOUND));
         List<Category> children = categoryRepository.findByParentIdIn(Collections.singletonList(id));
-        List<Long> categoryIdsToDelete = new ArrayList<>();
-        categoryIdsToDelete.add(id);
-        for (Category child : children) {
-            categoryIdsToDelete.add(child.getId());
-        }
-        fileService.deleteFiles(newsRepository.findAvatarsByCategoryIdIn(categoryIdsToDelete));
-        newsRepository.deleteAllByCategoryIdIn(categoryIdsToDelete);
         for (Category child : children) {
             if (StringUtils.isNoneBlank(child.getAvatar())) {
                 fileService.deleteFile(child.getAvatar());
@@ -156,7 +141,7 @@ public class CategoryController extends ABasicController {
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<CategoryTreeDto>>> publicList(CategoryCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<CategoryTreeDto>>> publicList(CategoryCriteria criteria, Pageable pageable) {
         criteria.setIsParent(true);
         Page<Category> parents = categoryRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(parents, this::toCategoryTreeDtoList), "List category tree success");
@@ -173,15 +158,6 @@ public class CategoryController extends ABasicController {
             tree.setChildren(categoryMapper.fromEntityToCategoryDtoList(children));
         }
         return trees;
-    }
-
-    @GetMapping(value = "/auto-complete", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasRole('CAT_L')")
-    public ApiMessageDto<ResponseListDto<List<CategoryDto>>> autoComplete(CategoryCriteria criteria) {
-        criteria.setStatus(AIConstant.STATUS_ACTIVE);
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<Category> categories = categoryRepository.findAll(criteria.getCriteria(), pageable);
-        return makeSuccessResponse(makeResponseListDto(categories, categoryMapper::fromEntityToCategoryAutoCompleteDtoList), "Get auto complete categories success");
     }
 
     @Transactional

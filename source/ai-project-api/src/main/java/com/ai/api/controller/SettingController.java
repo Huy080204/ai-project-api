@@ -20,8 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +49,7 @@ public class SettingController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SET_L')")
-    public ApiMessageDto<ResponseListDto<List<SettingDto>>> list(SettingCriteria settingCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<SettingDto>>> list(SettingCriteria settingCriteria, Pageable pageable) {
         Page<Setting> settings = settingRepository.findAll(settingCriteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(settings, settingMapper::fromEntityToSettingDtoList), "Get list setting success");
     }
@@ -67,13 +65,12 @@ public class SettingController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SET_C')")
     @Transactional
-    public ApiMessageDto<SettingDto> create(@Valid @RequestBody CreateSettingForm createSettingForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateSettingForm createSettingForm, BindingResult bindingResult) {
         if (settingRepository.findFirstByGroupNameAndKeyName(createSettingForm.getGroupName(), createSettingForm.getKeyName()).isPresent()) {
             throw new BadRequestException("Group name and key name existed", ErrorCode.SETTING_ERROR_EXISTED_GROUP_NAME_AND_KEY_NAME);
         }
-        Setting setting = settingMapper.fromCreateSettingFormToEntity(createSettingForm);
-        settingRepository.save(setting);
-        return makeSuccessResponse(settingMapper.fromEntityToSettingIdDto(setting), "Create setting success");
+        settingRepository.save(settingMapper.fromCreateSettingFormToEntity(createSettingForm));
+        return makeSuccessResponse("Create setting success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

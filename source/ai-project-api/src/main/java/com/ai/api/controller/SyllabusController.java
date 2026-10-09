@@ -13,12 +13,8 @@ import com.ai.api.form.syllabus.UpdateSyllabusOrderingForm;
 import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Syllabus;
-import com.ai.api.model.SyllabusMaterial;
 import com.ai.api.model.criteria.SyllabusCriteria;
-import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.SubmissionRepository;
-import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +45,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/syllabus")
@@ -68,19 +63,10 @@ public class SyllabusController extends ABasicController {
     @Autowired
     private FileService fileService;
 
-    @Autowired
-    private AssignmentRepository assignmentRepository;
-
-    @Autowired
-    private SubmissionRepository submissionRepository;
-
-    @Autowired
-    private SyllabusMaterialRepository syllabusMaterialRepository;
-
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SYL_C')")
-    public ApiMessageDto<SyllabusDto> create(@Valid @RequestBody CreateSyllabusForm createSyllabusForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateSyllabusForm createSyllabusForm, BindingResult bindingResult) {
         Course course = courseRepository.findById(createSyllabusForm.getCourseId())
                 .orElseThrow(() -> new NotFoundException("Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
         Syllabus syllabus = syllabusMapper.fromCreateSyllabusFormToEntity(createSyllabusForm);
@@ -102,7 +88,7 @@ public class SyllabusController extends ABasicController {
         }
 
         syllabusRepository.save(syllabus);
-        return makeSuccessResponse(syllabusMapper.fromEntityToSyllabusIdDto(syllabus), "Create syllabus success");
+        return makeSuccessResponse("Create syllabus success");
     }
 
     @Transactional
@@ -160,16 +146,6 @@ public class SyllabusController extends ABasicController {
                 .orElseThrow(() -> new NotFoundException("Syllabus not found", ErrorCode.SYLLABUS_ERROR_NOT_FOUND));
         Long courseId = syllabus.getCourse().getId();
 
-        List<SyllabusMaterial> syllabusMaterials = syllabusMaterialRepository.findBySyllabusId(id);
-        List<String> syllabusMaterialFiles = syllabusMaterials.stream()
-                .map(SyllabusMaterial::getFileUrl)
-                .filter(StringUtils::isNoneBlank)
-                .collect(Collectors.toList());
-        if (!syllabusMaterialFiles.isEmpty()) {
-            fileService.deleteFiles(syllabusMaterialFiles);
-        }
-        syllabusMaterialRepository.deleteAllBySyllabusId(id);
-
         if (AIConstant.SYLLABUS_KIND_LESSON.equals(syllabus.getKind())) {
             // Handle lesson deletion: update parent chapter timeline and subtract from course total timeline
             if (chapterId == null) {
@@ -179,13 +155,6 @@ public class SyllabusController extends ABasicController {
             chapter.setTimeline(chapter.getTimeline() - syllabus.getTimeline());
             syllabusRepository.save(chapter);
 
-            List<String> filesToDelete = new ArrayList<>(assignmentRepository.findFileAttachmentUrlsBySyllabusId(id));
-            filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusId(id));
-            if (!filesToDelete.isEmpty()) {
-                fileService.deleteFiles(filesToDelete);
-            }
-            submissionRepository.deleteAllBySyllabusId(id);
-            assignmentRepository.deleteAllBySyllabusId(id);
             syllabusRepository.deleteById(id);
             courseRepository.updateTotalTimelineByDelta(courseId, -syllabus.getTimeline());
         } else if (AIConstant.SYLLABUS_KIND_CHAPTER.equals(syllabus.getKind())) {
@@ -204,13 +173,6 @@ public class SyllabusController extends ABasicController {
                 }
             }
 
-            List<String> filesToDelete = new ArrayList<>(assignmentRepository.findFileAttachmentUrlsBySyllabusId(id));
-            filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusId(id));
-            if (!filesToDelete.isEmpty()) {
-                fileService.deleteFiles(filesToDelete);
-            }
-            submissionRepository.deleteAllBySyllabusId(id);
-            assignmentRepository.deleteAllBySyllabusId(id);
             syllabusRepository.deleteById(id);
         }
 

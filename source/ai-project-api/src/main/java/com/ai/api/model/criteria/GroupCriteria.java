@@ -1,7 +1,6 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Group;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -24,7 +23,6 @@ public class GroupCriteria implements Serializable {
     private Integer excludeKind;
     private List<Integer> kinds;
 
-    @Schema(hidden = true)
     public Specification<Group> getSpecification() {
         return new Specification<Group>() {
             private static final long serialVersionUID = 1L;

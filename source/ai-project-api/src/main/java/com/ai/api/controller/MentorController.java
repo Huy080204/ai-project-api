@@ -23,8 +23,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -65,7 +63,7 @@ public class MentorController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_C')")
-    public ApiMessageDto<MentorDto> create(@Valid @RequestBody CreateMentorForm form, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreateMentorForm form, BindingResult bindingResult) {
         Group group = groupRepository.findById(form.getGroupId())
                 .orElseThrow(() -> new BadRequestException("[Group] Group not found", ErrorCode.GROUP_ERROR_NOT_FOUND));
 
@@ -95,7 +93,7 @@ public class MentorController extends ABasicController {
         mentor.setAccount(account);
         mentorRepository.save(mentor);
 
-        return makeSuccessResponse(mentorMapper.fromEntityToMentorIdDto(mentor), "Create mentor success");
+        return makeSuccessResponse("Create mentor success");
     }
 
     @Transactional
@@ -151,14 +149,14 @@ public class MentorController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_L')")
-    public ApiMessageDto<ResponseListDto<List<MentorDto>>> list(MentorCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<MentorDto>>> list(MentorCriteria criteria, Pageable pageable) {
         Page<Mentor> mentors = mentorRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorDtoList), "List mentor success");
     }
 
     @GetMapping(value = "/auto-complete", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_L')")
-    public ApiMessageDto<ResponseListDto<List<MentorDto>>> autoComplete(MentorCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<MentorDto>>> autoComplete(MentorCriteria criteria, Pageable pageable) {
         Page<Mentor> mentors = mentorRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorAutoCompleteDtoList), "Get auto complete mentors success");
     }
@@ -188,7 +186,7 @@ public class MentorController extends ABasicController {
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<MentorDto>>> publicList(MentorCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<MentorDto>>> publicList(MentorCriteria criteria, Pageable pageable) {
         criteria.setStatus(AIConstant.STATUS_ACTIVE);
         Page<Mentor> mentors = mentorRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorDtoPublicList), "List mentor success");

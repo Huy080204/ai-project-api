@@ -38,7 +38,7 @@ public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
                 .and()
                 .authorizeRequests()
                 .antMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**", "/index", "/pub/**", "/api/token", "/api/auth/pwd/verify-token",
-                        "/api/auth/activate/resend", "/api/auth/pwd", "/api/auth/logout", "/actuator/**").permitAll()
+                        "/api/auth/activate/resend", "/api/auth/pwd", "/api/auth/logout", "/actuator/health", "/actuator/health/**").permitAll()
                 .antMatchers("/v1/account/request_forget_password", "/v1/account/forget_password").permitAll()
                 .antMatchers("/v1/setting/find-by-key", "/v1/setting/find-by-group", "/v1/setting/public").permitAll()
                 .antMatchers("/v1/registration/create").permitAll()

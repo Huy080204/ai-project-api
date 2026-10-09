@@ -16,8 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.BindingResult;
@@ -38,19 +36,19 @@ public class PermissionController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('PER_C')")
-    public ApiMessageDto<PermissionDto> create(@Valid @RequestBody CreatePermissionForm createPermissionForm, BindingResult bindingResult) {
+    public ApiMessageDto<Void> create(@Valid @RequestBody CreatePermissionForm createPermissionForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
         }
         Permission permission = permissionMapper.fromCreatePermissionFormToEntity(createPermissionForm);
         permission.setPCode(createPermissionForm.getPermissionCode());
         permissionRepository.save(permission);
-        return makeSuccessResponse(permissionMapper.fromEntityToPermissionIdDto(permission), "Create permission success");
+        return makeSuccessResponse("Create permission success");
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('PER_L')")
-    public ApiMessageDto<ResponseListDto<List<PermissionDto>>> list(PermissionCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<PermissionDto>>> list(PermissionCriteria criteria, Pageable pageable) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed list.");
         }

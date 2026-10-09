@@ -1,6 +1,5 @@
 package com.ai.api.controller;
 
-import com.ai.api.constant.AIConstant;
 import com.ai.api.dto.ApiMessageDto;
 import com.ai.api.dto.ResponseListDto;
 import com.ai.api.dto.category.CategoryDto;
@@ -14,11 +13,9 @@ import com.ai.api.mapper.CategoryMapper;
 import com.ai.api.model.Category;
 import com.ai.api.model.criteria.CategoryCriteria;
 import com.ai.api.repository.CategoryRepository;
-import com.ai.api.repository.NewsRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -57,9 +54,6 @@ class CategoryControllerTest {
 
     @Mock
     private FileService fileService;
-
-    @Mock
-    private NewsRepository newsRepository;
 
     @InjectMocks
     private CategoryController categoryController;
@@ -298,51 +292,6 @@ class CategoryControllerTest {
         verify(categoryRepository).findAll(any(Specification.class), eq(pageable));
     }
 
-    // ------------------------------------------------------------ auto-complete
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldReturnTrimmedIdAndNameOnlyForAutoComplete() {
-        // Arrange (FR-019: auto-complete trims CategoryDto down to id + name only, page fixed to (0, 10))
-        CategoryCriteria criteria = new CategoryCriteria();
-        criteria.setName("Book");
-        Pageable pageable = PageRequest.of(0, 10);
-
-        Category category = new Category();
-        category.setId(1L);
-        category.setName("Books");
-        category.setDescription("Book category");
-        category.setAvatar("/books.png");
-        category.setKind(1);
-        category.setOrdering(2);
-        Page<Category> page = new PageImpl<>(Collections.singletonList(category), pageable, 1);
-
-        CategoryDto dto = new CategoryDto();
-        dto.setId(1L);
-        dto.setName("Books");
-
-        when(categoryRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(categoryMapper.fromEntityToCategoryAutoCompleteDtoList(anyList())).thenReturn(Collections.singletonList(dto));
-
-        // Act
-        ApiMessageDto<ResponseListDto<List<CategoryDto>>> result = categoryController.autoComplete(criteria);
-
-        // Assert
-        assertThat(criteria.getStatus()).isEqualTo(AIConstant.STATUS_ACTIVE);
-        assertThat(result.getResult()).isTrue();
-        assertThat(result.getData().getContent()).hasSize(1);
-        CategoryDto returned = result.getData().getContent().get(0);
-        assertThat(returned.getId()).isEqualTo(1L);
-        assertThat(returned.getName()).isEqualTo("Books");
-        assertThat(returned.getDescription()).isNull();
-        assertThat(returned.getAvatar()).isNull();
-        assertThat(returned.getParentId()).isNull();
-        assertThat(returned.getKind()).isNull();
-        assertThat(returned.getOrdering()).isNull();
-        verify(categoryRepository).findAll(any(Specification.class), eq(pageable));
-        verify(categoryMapper, never()).fromEntityToCategoryDtoList(anyList());
-    }
-
     // --------------------------------------------------------------------- get
 
     @Test
@@ -563,41 +512,5 @@ class CategoryControllerTest {
         assertThatThrownBy(() -> categoryController.updateOrdering(Arrays.asList(form1, form2)))
                 .isInstanceOf(NotFoundException.class);
         verify(categoryRepository, never()).saveAll(anyList());
-    }
-
-    // -------------------------------------------------------- cascade delete news
-
-    @Test
-    void shouldCascadeDeleteNewsWhenDeletingRootAndChildCategories() {
-        // Arrange (FR-009 category / FR-018 news: cascade delete news for root + cascaded child)
-        Category root = new Category();
-        root.setId(1L);
-        root.setName("Root");
-
-        Category child = new Category();
-        child.setId(2L);
-        child.setName("Child");
-        child.setParent(root);
-
-        List<Long> categoryIds = Arrays.asList(1L, 2L);
-        List<String> newsAvatars = Arrays.asList("/root-news-avatar.png", "/child-news-avatar.png");
-
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(root));
-        when(categoryRepository.findByParentIdIn(Collections.singletonList(1L)))
-                .thenReturn(Collections.singletonList(child));
-        when(newsRepository.findAvatarsByCategoryIdIn(categoryIds)).thenReturn(newsAvatars);
-
-        // Act
-        ApiMessageDto<Void> result = categoryController.delete(1L);
-
-        // Assert
-        assertThat(result.getResult()).isTrue();
-        verify(fileService, times(1)).deleteFiles(newsAvatars);
-        verify(newsRepository, times(1)).deleteAllByCategoryIdIn(categoryIds);
-
-        InOrder inOrder = inOrder(fileService, newsRepository, categoryRepository);
-        inOrder.verify(fileService).deleteFiles(newsAvatars);
-        inOrder.verify(newsRepository).deleteAllByCategoryIdIn(categoryIds);
-        inOrder.verify(categoryRepository).deleteById(1L);
     }
 }

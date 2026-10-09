@@ -1,7 +1,6 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Company;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -19,7 +18,6 @@ public class CompanyCriteria implements Serializable {
     private String name;
     private Integer status;
 
-    @Schema(hidden = true)
     public Specification<Company> getCriteria() {
         return new Specification<Company>() {
             private static final long serialVersionUID = 1L;
