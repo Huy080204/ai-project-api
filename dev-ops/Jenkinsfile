@@ -60,8 +60,11 @@ def buildDev(){
     if (_BRANCH_NAME.matches(TARTGET_BRANCH_DEPLOY)) {
 
         stage("Build source") {
-            withEnv( ["PATH+MAVEN=/usr/bin"] ) {
+            def jdkHome = tool name: 'jdk17', type: 'jdk'
+            withEnv( ["PATH+MAVEN=/usr/bin", "JAVA_HOME=${jdkHome}", "PATH+JDK=${jdkHome}/bin"] ) {
                 sh """
+                    java -version
+                    rm -rf dev-ops/src dev-ops/pom.xml dev-ops/target
                     cp -r source/ai-project-api/* dev-ops/
                     cd dev-ops
                     cp config/* src/main/resources/
@@ -122,7 +125,7 @@ def buildDev(){
                 sshPut remote: remote, from: "./${BUILD_FOLER}/config/application.properties", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/"
 
                 // Init log dir
-                sshCommand remote: remote, command: "mkdir -p ${LOG_PATH} && rm -rf ${LOG_PATH}\\/${APP_NAME}.log  && touch ${LOG_PATH}\\/${APP_NAME}.log"
+                sshCommand remote: remote, command: "mkdir -p ${LOG_PATH} && rm -rf ${LOG_PATH}\\/${APP_NAME}.json  && touch ${LOG_PATH}\\/${APP_NAME}.json"
 
                 // Deploy log service
                 sshCommand remote: remote, command: "mv ${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/${APP_NAME}.conf /etc/rsyslog.d/${APP_NAME}.conf && systemctl restart rsyslog"

@@ -21,8 +21,4 @@ public class RegisterClassroomStudentForm {
     @Schema(name = "studentId", requiredMode = Schema.RequiredMode.REQUIRED)
     @JsonDeserialize(using = StringToLongDeserializer.class)
     private Long studentId;
-
-    @Schema(name = "voucherId", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    @JsonDeserialize(using = StringToLongDeserializer.class)
-    private Long voucherId;
 }

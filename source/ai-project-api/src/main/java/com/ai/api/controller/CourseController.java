@@ -12,16 +12,11 @@ import com.ai.api.form.course.UpdateCourseForm;
 import com.ai.api.mapper.CourseMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.criteria.CourseCriteria;
-import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RatingRepository;
-import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
-import com.ai.api.repository.SubmissionRepository;
-import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
@@ -30,13 +25,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,7 +45,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/course")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class CourseController extends ABasicController {
     @Autowired
@@ -78,22 +69,7 @@ public class CourseController extends ABasicController {
     private RatingRepository ratingRepository;
 
     @Autowired
-    private ReactionRepository reactionRepository;
-
-    @Autowired
     private ClassroomStudentRepository classroomStudentRepository;
-
-    @Autowired
-    private AssignmentRepository assignmentRepository;
-
-    @Autowired
-    private SubmissionRepository submissionRepository;
-
-    @Autowired
-    private SyllabusMaterialRepository syllabusMaterialRepository;
-
-    @Autowired
-    private NotificationGroupRepository notificationGroupRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -135,7 +111,7 @@ public class CourseController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COU_L')")
-    public ApiMessageDto<ResponseListDto<List<CourseDto>>> list(CourseCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<CourseDto>>> list(CourseCriteria criteria, Pageable pageable) {
         Page<Course> courses = courseRepository.findAll(criteria.getSpecification(), pageable);
         return makeSuccessResponse(makeResponseListDto(courses, courseMapper::fromEntityToCourseDtoList), "List course success");
     }
@@ -151,21 +127,12 @@ public class CourseController extends ABasicController {
             filesToDelete.add(course.getAvatar());
         }
         filesToDelete.addAll(syllabusRepository.findAvatarsByCourseId(id));
-        filesToDelete.addAll(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(id));
-        filesToDelete.addAll(submissionRepository.findFileUrlsBySyllabusCourseId(id));
-        filesToDelete.addAll(syllabusMaterialRepository.findFileUrlsBySyllabusCourseId(id));
-        filesToDelete.addAll(notificationGroupRepository.findAvatarsByClassroomCourseId(id));
         fileService.deleteFiles(filesToDelete);
         registrationRepository.deleteAllByClassroomCourseId(id);
         classroomStudentRepository.deleteAllByClassroomCourseId(id);
-        notificationGroupRepository.deleteAllByClassroomCourseId(id);
         classroomRepository.deleteAllByCourseId(id);
-        submissionRepository.deleteAllBySyllabusCourseId(id);
-        assignmentRepository.deleteAllBySyllabusCourseId(id);
-        syllabusMaterialRepository.deleteAllBySyllabusCourseId(id);
         syllabusRepository.deleteAllByCourseId(id);
         ratingRepository.deleteAllByCourseId(id);
-        reactionRepository.deleteAllByCourseId(id);
         courseRepository.deleteById(id);
         return makeSuccessResponse("Delete course success");
     }

@@ -25,7 +25,6 @@ sed -i "s/{ENV}/dev/g" release/application.properties
 sed -i "s/{PORT}/$PORT/g" release/application-dev.properties
 sed -i "s/{APP_ID}/$APP_ID/g" release/application-dev.properties
 sed -i "s/{PACKAGE_NAME}/$PACKAGE_NAME/g" release/application-dev.properties
-sed -i "s/{PACKAGE_NAME}/$PACKAGE_NAME/g" release/logback-spring.xml
 
 cp service-template.service release/$APP_ID.service
 sed -i "s/{CONFIG_LOCATION}/$(printf '%s\n' "$TARGET_DIR" | sed -e 's/[]\/$*.^[]/\\&/g')/g" release/$APP_ID.service
@@ -58,7 +57,7 @@ ssh root@$SERVER_DEPLOY "systemctl enable $APP_ID.service"
 
 echo " ---> Deploy log service..."
 # Create log directory
-ssh root@$SERVER_DEPLOY "mkdir -p /var/log/$APP_ID/ && touch /var/log/$APP_ID/log.log"
+ssh root@$SERVER_DEPLOY "mkdir -p /var/log/$APP_ID/ && touch /var/log/$APP_ID/$APP_ID.json"
 # Deploy log service
 ssh root@$SERVER_DEPLOY "rm -rf /etc/rsyslog.d/$APP_ID.conf && cd $TARGET_DIR && cp $APP_ID.conf /etc/rsyslog.d/$APP_ID.conf && systemctl restart rsyslog"
 

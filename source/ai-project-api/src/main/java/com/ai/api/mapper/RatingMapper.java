@@ -54,8 +54,8 @@ public interface RatingMapper {
     @Named("fromEntityToRatingDtoPublicList")
     List<RatingDto> fromEntityToRatingDtoPublicList(List<Rating> ratings);
 
-    @BeanMapping(ignoreByDefault = true)
     @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
     @Named("fromEntityToRatingIdDto")
     RatingDto fromEntityToRatingIdDto(Rating rating);
 }

@@ -83,4 +83,9 @@ public interface AccountMapper {
     @Mapping(source = "status", target = "status")
     @BeanMapping(ignoreByDefault = true)
     void mappingUpdateAdminFormToEntity(UpdateAccountAdminForm form, @MappingTarget Account account);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToAccountIdDto")
+    AccountDto fromEntityToAccountIdDto(Account account);
 }

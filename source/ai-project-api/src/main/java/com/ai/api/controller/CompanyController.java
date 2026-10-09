@@ -13,15 +13,12 @@ import com.ai.api.mapper.CompanyMapper;
 import com.ai.api.model.Company;
 import com.ai.api.model.criteria.CompanyCriteria;
 import com.ai.api.repository.CompanyRepository;
-import com.ai.api.repository.JobPostingRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +31,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/company")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class CompanyController extends ABasicController {
     @Autowired
@@ -45,9 +41,6 @@ public class CompanyController extends ABasicController {
 
     @Autowired
     private FileService fileService;
-
-    @Autowired
-    private JobPostingRepository jobPostingRepository;
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COM_C')")
@@ -89,7 +82,7 @@ public class CompanyController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COM_L')")
-    public ApiMessageDto<ResponseListDto<List<CompanyDto>>> list(CompanyCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<CompanyDto>>> list(CompanyCriteria criteria, Pageable pageable) {
         Page<Company> companies = companyRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(companies, companyMapper::fromEntityToCompanyDtoList), "List Company success");
     }
@@ -101,13 +94,12 @@ public class CompanyController extends ABasicController {
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("[Company] Company not found", ErrorCode.COMPANY_ERROR_NOT_FOUND));
         fileService.deleteFile(company.getAvatar());
-        jobPostingRepository.deleteAllByCompanyId(id);
         companyRepository.deleteById(id);
         return makeSuccessResponse("Delete Company success");
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<CompanyDto>>> publicList(CompanyCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<CompanyDto>>> publicList(CompanyCriteria criteria, Pageable pageable) {
         criteria.setStatus(AIConstant.STATUS_ACTIVE);
         Page<Company> companies = companyRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(companies, companyMapper::fromEntityToCompanyDtoPublicList), "List Company success");

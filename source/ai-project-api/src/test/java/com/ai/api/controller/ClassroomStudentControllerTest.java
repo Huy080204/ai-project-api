@@ -10,7 +10,12 @@ import com.ai.api.dto.classroomstudent.ClassroomStudentDto;
 import com.ai.api.form.classroomstudent.ChangeClassroomStudentStateForm;
 import com.ai.api.form.classroomstudent.RegisterClassroomStudentForm;
 import com.ai.api.form.classroomstudent.RegisterFromRegistrationForm;
+import com.ai.api.mapper.AccountMapper;
+import com.ai.api.mapper.ClassroomMapper;
 import com.ai.api.mapper.ClassroomStudentMapper;
+import com.ai.api.mapper.CourseMapper;
+import com.ai.api.mapper.GroupMapper;
+import com.ai.api.mapper.StudentMapper;
 import com.ai.api.model.Account;
 import com.ai.api.model.Classroom;
 import com.ai.api.model.ClassroomStudent;
@@ -22,16 +27,17 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
-import com.ai.api.model.Voucher;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
-import com.ai.api.service.VoucherService;
 import com.ai.api.service.impl.UserServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -39,9 +45,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -49,9 +56,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -75,8 +80,8 @@ class ClassroomStudentControllerTest {
     @Mock
     private StudentRepository studentRepository;
 
-    @Mock
-    private ClassroomStudentMapper classroomStudentMapper;
+    @Spy
+    private ClassroomStudentMapper classroomStudentMapper = Mappers.getMapper(ClassroomStudentMapper.class);
 
     @Mock
     private UserServiceImpl userService;
@@ -93,11 +98,24 @@ class ClassroomStudentControllerTest {
     @Mock
     private AccountRepository accountRepository;
 
-    @Mock
-    private VoucherService voucherService;
-
     @InjectMocks
     private ClassroomStudentController classroomStudentController;
+
+    @BeforeEach
+    void setUp() {
+        // The generated Mapper impls @Autowired-inject the Mappers named in `uses = {...}`, which
+        // Mappers.getMapper(...) does not do: wire classroom -> course and student -> account ->
+        // group by hand.
+        ClassroomMapper classroomMapper = Mappers.getMapper(ClassroomMapper.class);
+        ReflectionTestUtils.setField(classroomMapper, "courseMapper", Mappers.getMapper(CourseMapper.class));
+        ReflectionTestUtils.setField(classroomStudentMapper, "classroomMapper", classroomMapper);
+
+        AccountMapper accountMapper = Mappers.getMapper(AccountMapper.class);
+        ReflectionTestUtils.setField(accountMapper, "groupMapper", Mappers.getMapper(GroupMapper.class));
+        StudentMapper studentMapper = Mappers.getMapper(StudentMapper.class);
+        ReflectionTestUtils.setField(studentMapper, "accountMapper", accountMapper);
+        ReflectionTestUtils.setField(classroomStudentMapper, "studentMapper", studentMapper);
+    }
 
     private RegisterClassroomStudentForm registerForm(Long classroomId, Long studentId) {
         RegisterClassroomStudentForm form = new RegisterClassroomStudentForm();
@@ -125,37 +143,43 @@ class ClassroomStudentControllerTest {
     void shouldRegisterClassroomStudentSuccessfully() {
         // Arrange
         RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(1L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
         Student student = new Student();
         student.setId(2L);
-        ClassroomStudent classroomStudent = new ClassroomStudent();
 
         when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
         when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
         when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
-        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
+        when(classroomStudentRepository.save(any(ClassroomStudent.class))).thenAnswer(invocation -> {
+            ClassroomStudent saved = invocation.getArgument(0);
+            saved.setId(40L);
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = classroomStudentController.register(form, bindingResult);
+        ApiMessageDto<ClassroomStudentDto> result = classroomStudentController.register(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(classroomStudent.getClassroom()).isEqualTo(classroom);
-        assertThat(classroomStudent.getStudent()).isEqualTo(student);
-        assertThat(classroomStudent.getState()).isEqualTo(AIConstant.CLASSROOM_STUDENT_STATE_PENDING);
-        assertThat(classroomStudent.getDateRegistration()).isNotNull();
-        assertThat(classroomStudent.getDateDone()).isNull();
-        verify(classroomStudentRepository).save(classroomStudent);
+        assertThat(result.getData().getId()).isEqualTo(40L);
+        ArgumentCaptor<ClassroomStudent> classroomStudentCaptor = ArgumentCaptor.forClass(ClassroomStudent.class);
+        verify(classroomStudentRepository).save(classroomStudentCaptor.capture());
+        ClassroomStudent saved = classroomStudentCaptor.getValue();
+        assertThat(saved.getClassroom()).isSameAs(classroom);
+        assertThat(saved.getStudent()).isSameAs(student);
+        assertThat(saved.getState()).isEqualTo(AIConstant.CLASSROOM_STUDENT_STATE_PENDING);
+        assertThat(saved.getDateRegistration()).isNotNull();
+        assertThat(saved.getDateDone()).isNull();
     }
 
     @Test
     void shouldThrowNotFoundWhenRegisterClassroomMissing() {
         // Arrange
         RegisterClassroomStudentForm form = registerForm(999L, 2L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(classroomRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -169,7 +193,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowNotFoundWhenRegisterStudentMissing() {
         // Arrange
         RegisterClassroomStudentForm form = registerForm(1L, 999L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(1L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
@@ -187,7 +211,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenRegisterClassroomStateDone() {
         // Arrange
         RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(1L);
         classroom.setState(AIConstant.CLASSROOM_STATE_DONE);
@@ -207,7 +231,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenRegisterClassroomStateCancel() {
         // Arrange
         RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(1L);
         classroom.setState(AIConstant.CLASSROOM_STATE_CANCEL);
@@ -227,7 +251,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenRegisterDuplicatePair() {
         // Arrange - duplicate pair rejected regardless of the existing row's state
         RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(1L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
@@ -244,130 +268,13 @@ class ClassroomStudentControllerTest {
         verify(classroomStudentRepository, never()).save(any());
     }
 
-    @Test
-    void shouldApplyVoucherWhenRegisteringWithVoucherId() {
-        // Arrange
-        RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        form.setVoucherId(3L);
-        BindingResult bindingResult = mock(BindingResult.class);
-        Classroom classroom = new Classroom();
-        classroom.setId(1L);
-        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
-        classroom.setPrice(new BigDecimal("2000000"));
-        Student student = new Student();
-        student.setId(2L);
-        ClassroomStudent classroomStudent = new ClassroomStudent();
-        Voucher voucher = new Voucher();
-        voucher.setId(3L);
-        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
-        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
-        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
-        when(voucherService.validateAndApplyVoucher(3L, new BigDecimal("2000000"))).thenReturn(voucher);
-        when(voucherService.calculateDiscountAmount(voucher, new BigDecimal("2000000"))).thenReturn(new BigDecimal("200000.00"));
-
-        // Act
-        ApiMessageDto<Void> result = classroomStudentController.register(form, bindingResult);
-
-        // Assert
-        assertThat(result.getResult()).isTrue();
-        assertThat(classroomStudent.getVoucher()).isEqualTo(voucher);
-        assertThat(classroomStudent.getDiscountAmount()).isEqualTo(new BigDecimal("200000.00"));
-        verify(classroomStudentRepository).save(classroomStudent);
-    }
-
-    @Test
-    void shouldNotApplyVoucherWhenVoucherIdOmitted() {
-        // Arrange
-        RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        BindingResult bindingResult = mock(BindingResult.class);
-        Classroom classroom = new Classroom();
-        classroom.setId(1L);
-        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
-        Student student = new Student();
-        student.setId(2L);
-        ClassroomStudent classroomStudent = new ClassroomStudent();
-
-        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
-        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
-        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
-
-        // Act
-        ApiMessageDto<Void> result = classroomStudentController.register(form, bindingResult);
-
-        // Assert
-        assertThat(result.getResult()).isTrue();
-        assertThat(classroomStudent.getVoucher()).isNull();
-        assertThat(classroomStudent.getDiscountAmount()).isNull();
-        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
-        verify(classroomStudentRepository).save(classroomStudent);
-    }
-
-    @Test
-    void shouldPropagateExceptionWhenRegisterVoucherInvalid() {
-        // Arrange
-        RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        form.setVoucherId(4L);
-        BindingResult bindingResult = mock(BindingResult.class);
-        Classroom classroom = new Classroom();
-        classroom.setId(1L);
-        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
-        classroom.setPrice(new BigDecimal("2000000"));
-        Student student = new Student();
-        student.setId(2L);
-        ClassroomStudent classroomStudent = new ClassroomStudent();
-
-        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
-        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
-        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
-        when(voucherService.validateAndApplyVoucher(4L, new BigDecimal("2000000")))
-                .thenThrow(new BadRequestException("Voucher is not active", ErrorCode.VOUCHER_ERROR_INVALID));
-
-        // Act + Assert
-        assertThatThrownBy(() -> classroomStudentController.register(form, bindingResult))
-                .isInstanceOfSatisfying(BadRequestException.class,
-                        ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.VOUCHER_ERROR_INVALID));
-        verify(classroomStudentRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldUseZeroOrderValueWhenClassroomPriceNull() {
-        // Arrange
-        RegisterClassroomStudentForm form = registerForm(1L, 2L);
-        form.setVoucherId(3L);
-        BindingResult bindingResult = mock(BindingResult.class);
-        Classroom classroom = new Classroom();
-        classroom.setId(1L);
-        classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
-        classroom.setPrice(null);
-        Student student = new Student();
-        student.setId(2L);
-        ClassroomStudent classroomStudent = new ClassroomStudent();
-        Voucher voucher = new Voucher();
-        voucher.setId(3L);
-        when(classroomRepository.findById(1L)).thenReturn(Optional.of(classroom));
-        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(classroomStudentRepository.existsByClassroomIdAndStudentId(1L, 2L)).thenReturn(false);
-        when(classroomStudentMapper.fromFormToEntity(form)).thenReturn(classroomStudent);
-        when(voucherService.validateAndApplyVoucher(3L, BigDecimal.ZERO)).thenReturn(voucher);
-        when(voucherService.calculateDiscountAmount(voucher, BigDecimal.ZERO)).thenReturn(BigDecimal.ZERO);
-
-        // Act
-        classroomStudentController.register(form, bindingResult);
-
-        // Assert
-        verify(voucherService).validateAndApplyVoucher(3L, BigDecimal.ZERO);
-    }
-
     // ------------------------------------------------------------- changeState
 
     @Test
     void shouldChangeStateForValidTransitionPendingToAccept() {
         // Arrange
         ChangeClassroomStudentStateForm form = changeStateForm(1L, AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         ClassroomStudent classroomStudent = new ClassroomStudent();
         classroomStudent.setId(1L);
         classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_PENDING);
@@ -387,7 +294,7 @@ class ClassroomStudentControllerTest {
     void shouldChangeStateForValidTransitionPendingToReject() {
         // Arrange
         ChangeClassroomStudentStateForm form = changeStateForm(1L, AIConstant.CLASSROOM_STUDENT_STATE_REJECT);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         ClassroomStudent classroomStudent = new ClassroomStudent();
         classroomStudent.setId(1L);
         classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_PENDING);
@@ -407,7 +314,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenChangeStateOutOfAlreadyDecidedState() {
         // Arrange - accept(1) is already decided, no further transition is permitted
         ChangeClassroomStudentStateForm form = changeStateForm(1L, AIConstant.CLASSROOM_STUDENT_STATE_REJECT);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         ClassroomStudent classroomStudent = new ClassroomStudent();
         classroomStudent.setId(1L);
         classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT);
@@ -425,7 +332,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenChangeStateIsNoOp() {
         // Arrange - pending(0) -> pending(0) is not a permitted transition
         ChangeClassroomStudentStateForm form = changeStateForm(1L, AIConstant.CLASSROOM_STUDENT_STATE_PENDING);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         ClassroomStudent classroomStudent = new ClassroomStudent();
         classroomStudent.setId(1L);
         classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_PENDING);
@@ -442,7 +349,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowNotFoundWhenChangeStateIdMissing() {
         // Arrange
         ChangeClassroomStudentStateForm form = changeStateForm(999L, AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(classroomStudentRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -468,20 +375,14 @@ class ClassroomStudentControllerTest {
         classroomStudent2.setId(2L);
         Page<ClassroomStudent> page = new PageImpl<>(Arrays.asList(classroomStudent1, classroomStudent2), pageable, 2);
 
-        ClassroomStudentDto dto1 = new ClassroomStudentDto();
-        dto1.setId(1L);
-        ClassroomStudentDto dto2 = new ClassroomStudentDto();
-        dto2.setId(2L);
-
         when(classroomStudentRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(classroomStudentMapper.fromEntityToClassroomStudentDtoList(anyList())).thenReturn(Arrays.asList(dto1, dto2));
 
         // Act
         ApiMessageDto<ResponseListDto<List<ClassroomStudentDto>>> result = classroomStudentController.list(criteria, pageable);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData().getContent()).hasSize(2);
+        assertThat(result.getData().getContent()).extracting(ClassroomStudentDto::getId).containsExactly(1L, 2L);
         verify(classroomStudentRepository).findAll(any(Specification.class), eq(pageable));
     }
 
@@ -520,22 +421,6 @@ class ClassroomStudentControllerTest {
     }
 
     @Test
-    void shouldDeleteClassroomStudentSuccessfullyWhenStateAccept() {
-        // Arrange
-        ClassroomStudent classroomStudent = new ClassroomStudent();
-        classroomStudent.setId(11L);
-        classroomStudent.setState(AIConstant.CLASSROOM_STUDENT_STATE_ACCEPT);
-        when(classroomStudentRepository.findById(11L)).thenReturn(Optional.of(classroomStudent));
-
-        // Act
-        ApiMessageDto<Void> result = classroomStudentController.delete(11L);
-
-        // Assert
-        assertThat(result.getResult()).isTrue();
-        verify(classroomStudentRepository).deleteById(11L);
-    }
-
-    @Test
     void shouldThrowNotFoundWhenDeleteClassroomStudentNotFound() {
         // Arrange
         when(classroomStudentRepository.findById(99L)).thenReturn(Optional.empty());
@@ -565,7 +450,7 @@ class ClassroomStudentControllerTest {
     void shouldReuseExistingStudentWhenEmailMatches() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
 
         Account existingAccount = new Account();
@@ -578,12 +463,18 @@ class ClassroomStudentControllerTest {
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
         when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
         when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
+        when(classroomStudentRepository.save(any(ClassroomStudent.class))).thenAnswer(invocation -> {
+            ClassroomStudent saved = invocation.getArgument(0);
+            saved.setId(41L);
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
+        ApiMessageDto<ClassroomStudentDto> result = classroomStudentController.registerFromRegistration(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(41L);
         verify(accountRepository, never()).save(any());
         verify(studentRepository, never()).save(any());
         verify(classroomStudentRepository).save(any(ClassroomStudent.class));
@@ -594,7 +485,7 @@ class ClassroomStudentControllerTest {
     void shouldReuseExistingStudentWhenPhoneMatchesAsFallback() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "unknown@example.com", "0922222222");
 
         Account existingAccount = new Account();
@@ -609,7 +500,7 @@ class ClassroomStudentControllerTest {
         when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 21L)).thenReturn(false);
 
         // Act
-        ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
+        ApiMessageDto<ClassroomStudentDto> result = classroomStudentController.registerFromRegistration(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -623,7 +514,7 @@ class ClassroomStudentControllerTest {
     void shouldCreateNewAccountAndStudentWhenNoMatch() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
 
         Group studentGroup = new Group();
@@ -637,7 +528,7 @@ class ClassroomStudentControllerTest {
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
 
         // Act
-        ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
+        ApiMessageDto<ClassroomStudentDto> result = classroomStudentController.registerFromRegistration(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -660,7 +551,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowNotFoundWhenRegistrationMissing() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(999L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(registrationRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -675,7 +566,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenUsernameAlreadyExistsOnCreatePath() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "dup@example.com", "0944444444");
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
@@ -696,7 +587,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowNotFoundWhenNoStudentGroupConfigured() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "nogroup@example.com", "0955555555");
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
@@ -718,7 +609,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenAlreadyRegistered() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "already@example.com", "0966666666");
 
         Account existingAccount = new Account();
@@ -748,7 +639,7 @@ class ClassroomStudentControllerTest {
         // studentId-keyed check alone would miss this, so resolveStudent must also check by email
         // directly before creating a new Account.
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "dup@example.com", "0911100000");
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
@@ -769,7 +660,7 @@ class ClassroomStudentControllerTest {
     void shouldThrowBadRequestWhenAlreadyRegisteredByPhoneOnCreatePath() {
         // Arrange - same as above, but the duplicate signal is on phone instead of email
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "fresh@example.com", "0911100001");
 
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
@@ -791,8 +682,8 @@ class ClassroomStudentControllerTest {
     void shouldOverrideFullNameFromFormOnNewStudentCreation() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setFullName("New Name");
-        BindingResult bindingResult = mock(BindingResult.class);
         Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
         registration.setFullName("Old Name");
 
@@ -819,7 +710,7 @@ class ClassroomStudentControllerTest {
     void shouldKeepRegistrationFullNameWhenFormFullNameBlank() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, "new@example.com", "0933333333");
         registration.setFullName("Old Name");
 
@@ -846,9 +737,9 @@ class ClassroomStudentControllerTest {
     void shouldOverrideEmailAndPhoneFromFormOnNewStudentCreation() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setEmail("override@example.com");
         form.setPhone("0955555555");
-        BindingResult bindingResult = mock(BindingResult.class);
         Registration registration = registration(1L, 5L, null, "0966666666");
 
         Group studentGroup = new Group();
@@ -877,7 +768,7 @@ class ClassroomStudentControllerTest {
     void shouldFallBackToRegistrationEmailPhoneWhenFormBlank() {
         // Arrange - Registration has no email (now optional), form supplies no override either
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Registration registration = registration(1L, 5L, null, "0977777777");
 
         Group studentGroup = new Group();
@@ -910,8 +801,8 @@ class ClassroomStudentControllerTest {
     void shouldUseOverriddenPhoneForStudentLookup() {
         // Arrange - form's phone override is what drives the resolveStudent lookup, not registration.getPhone()
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setPhone("0988888888");
-        BindingResult bindingResult = mock(BindingResult.class);
         Registration registration = registration(1L, 5L, "reg@example.com", "0977777777");
 
         Account existingAccount = new Account();
@@ -926,7 +817,7 @@ class ClassroomStudentControllerTest {
         when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 23L)).thenReturn(false);
 
         // Act
-        ApiMessageDto<Void> result = classroomStudentController.registerFromRegistration(form, bindingResult);
+        ApiMessageDto<ClassroomStudentDto> result = classroomStudentController.registerFromRegistration(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
@@ -939,9 +830,9 @@ class ClassroomStudentControllerTest {
     void shouldIgnoreFormEmailPhoneOnExistingStudentPath() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setEmail("ignored@example.com");
         form.setPhone("0999999999");
-        BindingResult bindingResult = mock(BindingResult.class);
         Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
 
         Account existingAccount = new Account();
@@ -967,8 +858,8 @@ class ClassroomStudentControllerTest {
     void shouldIgnoreFormFullNameOnExistingStudentPath() {
         // Arrange
         RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setFullName("Ignored Name");
-        BindingResult bindingResult = mock(BindingResult.class);
         Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
 
         Account existingAccount = new Account();
@@ -988,67 +879,5 @@ class ClassroomStudentControllerTest {
         // Assert - reuse branch is untouched by form fullName
         verify(accountRepository, never()).save(any());
         verify(studentRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldCopyVoucherAndDiscountAmountFromRegistrationOnApprove() {
-        // Arrange
-        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
-        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
-        Voucher voucher = new Voucher();
-        voucher.setId(3L);
-        registration.setVoucher(voucher);
-        registration.setDiscountAmount(new BigDecimal("100000.00"));
-
-        Account existingAccount = new Account();
-        existingAccount.setId(20L);
-        existingAccount.setEmail("existing@example.com");
-        Student existingStudent = new Student();
-        existingStudent.setId(20L);
-        existingStudent.setAccount(existingAccount);
-
-        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
-        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
-        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
-
-        // Act
-        classroomStudentController.registerFromRegistration(form, bindingResult);
-
-        // Assert
-        ArgumentCaptor<ClassroomStudent> captor = ArgumentCaptor.forClass(ClassroomStudent.class);
-        verify(classroomStudentRepository).save(captor.capture());
-        assertThat(captor.getValue().getVoucher()).isEqualTo(voucher);
-        assertThat(captor.getValue().getDiscountAmount()).isEqualTo(new BigDecimal("100000.00"));
-        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
-    }
-
-    @Test
-    void shouldLeaveVoucherNullOnApproveWhenRegistrationHasNone() {
-        // Arrange
-        RegisterFromRegistrationForm form = registerFromRegistrationForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
-        Registration registration = registration(1L, 5L, "existing@example.com", "0911111111");
-
-        Account existingAccount = new Account();
-        existingAccount.setId(20L);
-        existingAccount.setEmail("existing@example.com");
-        Student existingStudent = new Student();
-        existingStudent.setId(20L);
-        existingStudent.setAccount(existingAccount);
-
-        when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
-        when(studentRepository.findFirstByAccountPhoneOrAccountEmail("0911111111", "existing@example.com")).thenReturn(Optional.of(existingStudent));
-        when(classroomStudentRepository.existsByClassroomIdAndStudentId(5L, 20L)).thenReturn(false);
-
-        // Act
-        classroomStudentController.registerFromRegistration(form, bindingResult);
-
-        // Assert
-        ArgumentCaptor<ClassroomStudent> captor = ArgumentCaptor.forClass(ClassroomStudent.class);
-        verify(classroomStudentRepository).save(captor.capture());
-        assertThat(captor.getValue().getVoucher()).isNull();
-        assertThat(captor.getValue().getDiscountAmount()).isNull();
-        verify(voucherService, never()).validateAndApplyVoucher(any(), any());
     }
 }

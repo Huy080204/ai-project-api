@@ -30,8 +30,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,7 +43,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/account")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class AccountController extends ABasicController {
     @Autowired
@@ -63,7 +60,8 @@ public class AccountController extends ABasicController {
 
     @PostMapping(value = "/create-admin", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ACC_C_AD')")
-    public ApiMessageDto<Void> createAdmin(@Valid @RequestBody CreateAccountAdminForm form, BindingResult bindingResult) {
+    @Transactional
+    public ApiMessageDto<AccountDto> createAdmin(@Valid @RequestBody CreateAccountAdminForm form, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed");
         }
@@ -92,11 +90,12 @@ public class AccountController extends ABasicController {
         account.setGroup(group);
         accountRepository.save(account);
 
-        return makeSuccessResponse("Create account admin success");
+        return makeSuccessResponse(accountMapper.fromEntityToAccountIdDto(account), "Create account admin success");
     }
 
     @PutMapping(value = "/update-admin", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ACC_U_AD')")
+    @Transactional
     public ApiMessageDto<Void> updateAdmin(@Valid @RequestBody UpdateAccountAdminForm form, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed");
@@ -176,6 +175,7 @@ public class AccountController extends ABasicController {
     }
 
     @PutMapping(value = "/update-profile-admin", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
     public ApiMessageDto<Void> updateProfileAdmin(@Valid @RequestBody UpdateProfileAdminForm updateProfileAdminForm, BindingResult bindingResult) {
         Account account = accountRepository.findByIdAndStatus(getCurrentUser(), AIConstant.STATUS_ACTIVE)
                 .orElseThrow(() -> new NotFoundException("[Account] Account not found", ErrorCode.ACCOUNT_ERROR_NOT_FOUND));
@@ -245,7 +245,7 @@ public class AccountController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ACC_L')")
-    public ApiMessageDto<ResponseListDto<List<AccountDto>>> listAccount(AccountCriteria accountCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<AccountDto>>> listAccount(AccountCriteria accountCriteria, Pageable pageable) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("[Account] Not allowed to list account.");
         }

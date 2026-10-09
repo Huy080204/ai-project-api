@@ -17,7 +17,6 @@ import com.ai.api.model.ClassroomStudent;
 import com.ai.api.model.Group;
 import com.ai.api.model.Registration;
 import com.ai.api.model.Student;
-import com.ai.api.model.Voucher;
 import com.ai.api.model.criteria.ClassroomStudentCriteria;
 import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomRepository;
@@ -25,21 +24,17 @@ import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.repository.StudentRepository;
-import com.ai.api.service.VoucherService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,14 +45,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/classroom-student")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class ClassroomStudentController extends ABasicController {
     @Autowired
@@ -84,13 +77,10 @@ public class ClassroomStudentController extends ABasicController {
     @Autowired
     private AccountRepository accountRepository;
 
-    @Autowired
-    private VoucherService voucherService;
-
     @Transactional
     @PostMapping(value = "/register-by-student", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_C')")
-    public ApiMessageDto<Void> register(@Valid @RequestBody RegisterClassroomStudentForm registerClassroomStudentForm, BindingResult bindingResult) {
+    public ApiMessageDto<ClassroomStudentDto> register(@Valid @RequestBody RegisterClassroomStudentForm registerClassroomStudentForm, BindingResult bindingResult) {
         Classroom classroom = classroomRepository.findById(registerClassroomStudentForm.getClassroomId())
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
         Student student = studentRepository.findById(registerClassroomStudentForm.getStudentId())
@@ -105,15 +95,8 @@ public class ClassroomStudentController extends ABasicController {
         classroomStudent.setClassroom(classroom);
         classroomStudent.setStudent(student);
         classroomStudent.setDateRegistration(new Date());
-        if (registerClassroomStudentForm.getVoucherId() != null) {
-            BigDecimal orderValue = classroom.getPrice() != null ? classroom.getPrice() : BigDecimal.ZERO;
-            Voucher voucher = voucherService.validateAndApplyVoucher(registerClassroomStudentForm.getVoucherId(), orderValue);
-            BigDecimal discountAmount = voucherService.calculateDiscountAmount(voucher, orderValue);
-            classroomStudent.setVoucher(voucher);
-            classroomStudent.setDiscountAmount(discountAmount);
-        }
         classroomStudentRepository.save(classroomStudent);
-        return makeSuccessResponse("Register classroom student success");
+        return makeSuccessResponse(classroomStudentMapper.fromEntityToClassroomStudentIdDto(classroomStudent), "Register classroom student success");
     }
 
     @Transactional
@@ -133,7 +116,7 @@ public class ClassroomStudentController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_L')")
-    public ApiMessageDto<ResponseListDto<List<ClassroomStudentDto>>> list(ClassroomStudentCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<ClassroomStudentDto>>> list(ClassroomStudentCriteria criteria, Pageable pageable) {
         Page<ClassroomStudent> classroomStudents = classroomStudentRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(classroomStudents, classroomStudentMapper::fromEntityToClassroomStudentDtoList), "List classroom student success");
     }
@@ -142,7 +125,7 @@ public class ClassroomStudentController extends ABasicController {
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_D')")
     public ApiMessageDto<Void> delete(@PathVariable Long id) {
-        ClassroomStudent classroomStudent = classroomStudentRepository.findById(id)
+        classroomStudentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom student not found", ErrorCode.CLASSROOM_STUDENT_ERROR_NOT_FOUND));
         classroomStudentRepository.deleteById(id);
         return makeSuccessResponse("Delete classroom student success");
@@ -161,7 +144,7 @@ public class ClassroomStudentController extends ABasicController {
     @Transactional
     @PostMapping(value = "/register-from-registration", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_C')")
-    public ApiMessageDto<Void> registerFromRegistration(@Valid @RequestBody RegisterFromRegistrationForm registerFromRegistrationForm, BindingResult bindingResult) {
+    public ApiMessageDto<ClassroomStudentDto> registerFromRegistration(@Valid @RequestBody RegisterFromRegistrationForm registerFromRegistrationForm, BindingResult bindingResult) {
         Registration registration = registrationRepository.findById(registerFromRegistrationForm.getRegistrationId())
                 .orElseThrow(() -> new NotFoundException("Registration not found", ErrorCode.REGISTRATION_ERROR_NOT_FOUND));
 
@@ -171,13 +154,11 @@ public class ClassroomStudentController extends ABasicController {
         classroomStudent.setClassroom(registration.getClassroom());
         classroomStudent.setStudent(student);
         classroomStudent.setDateRegistration(new Date());
-        classroomStudent.setVoucher(registration.getVoucher());
-        classroomStudent.setDiscountAmount(registration.getDiscountAmount());
         classroomStudentRepository.save(classroomStudent);
 
         registrationRepository.deleteById(registration.getId());
 
-        return makeSuccessResponse("Register classroom student from registration success");
+        return makeSuccessResponse(classroomStudentMapper.fromEntityToClassroomStudentIdDto(classroomStudent), "Register classroom student from registration success");
     }
 
     private Student resolveStudent(Registration registration, RegisterFromRegistrationForm form) {

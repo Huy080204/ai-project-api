@@ -12,31 +12,29 @@ import com.ai.api.form.course.UpdateCourseForm;
 import com.ai.api.mapper.CourseMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.criteria.CourseCriteria;
-import com.ai.api.repository.AssignmentRepository;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RatingRepository;
-import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.RegistrationRepository;
-import com.ai.api.repository.SubmissionRepository;
-import com.ai.api.repository.SyllabusMaterialRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.math.BigDecimal;
@@ -48,10 +46,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,8 +63,8 @@ class CourseControllerTest {
     @Mock
     private CourseRepository courseRepository;
 
-    @Mock
-    private CourseMapper courseMapper;
+    @Spy
+    private CourseMapper courseMapper = Mappers.getMapper(CourseMapper.class);
 
     @Mock
     private FileService fileService;
@@ -86,25 +82,10 @@ class CourseControllerTest {
     private SyllabusRepository syllabusRepository;
 
     @Mock
-    private AssignmentRepository assignmentRepository;
-
-    @Mock
     private RegistrationRepository registrationRepository;
 
     @Mock
     private RatingRepository ratingRepository;
-
-    @Mock
-    private ReactionRepository reactionRepository;
-
-    @Mock
-    private SubmissionRepository submissionRepository;
-
-    @Mock
-    private SyllabusMaterialRepository syllabusMaterialRepository;
-
-    @Mock
-    private NotificationGroupRepository notificationGroupRepository;
 
     @InjectMocks
     private CourseController courseController;
@@ -134,24 +115,34 @@ class CourseControllerTest {
     void shouldCreateCourseSuccessfully() {
         // Arrange
         CreateCourseForm form = createForm("Java Basics");
-        BindingResult bindingResult = mock(BindingResult.class);
-        Course course = new Course();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(courseRepository.existsByName("Java Basics")).thenReturn(false);
-        when(courseMapper.fromCreateCourseFormToEntity(form)).thenReturn(course);
+        when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> {
+            Course saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
 
         // Act
         ApiMessageDto<CourseDto> result = courseController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(courseRepository).save(course);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        verify(courseRepository).save(courseCaptor.capture());
+        Course saved = courseCaptor.getValue();
+        assertThat(saved.getName()).isEqualTo("Java Basics");
+        assertThat(saved.getAvatar()).isEqualTo("avatar.png");
+        assertThat(saved.getPrice()).isEqualTo(BigDecimal.TEN);
+        assertThat(saved.getShortDescription()).isEqualTo("short description");
     }
 
     @Test
     void shouldThrowBadRequestWhenCreateCourseNameExists() {
         // Arrange
         CreateCourseForm form = createForm("Java Basics");
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(courseRepository.existsByName("Java Basics")).thenReturn(true);
 
         // Act + Assert
@@ -167,7 +158,7 @@ class CourseControllerTest {
     void shouldUpdateCourseSuccessfully() {
         // Arrange
         UpdateCourseForm form = updateForm(1L, "Java Advanced");
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = new Course();
         course.setId(1L);
         course.setName("Java Basics");
@@ -181,7 +172,9 @@ class CourseControllerTest {
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(courseMapper).updateEntityFromForm(form, course);
+        assertThat(course.getName()).isEqualTo("Java Advanced");
+        assertThat(course.getPrice()).isEqualTo(BigDecimal.ONE);
+        assertThat(course.getShortDescription()).isEqualTo("short description");
         verify(courseRepository).save(course);
     }
 
@@ -189,7 +182,7 @@ class CourseControllerTest {
     void shouldThrowBadRequestWhenUpdateCourseNameExistsExcludingSelf() {
         // Arrange
         UpdateCourseForm form = updateForm(1L, "Java Advanced");
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = new Course();
         course.setId(1L);
         course.setName("Java Basics");
@@ -210,8 +203,8 @@ class CourseControllerTest {
     void shouldDeleteOldAvatarWhenUpdateAvatarChanges() {
         // Arrange
         UpdateCourseForm form = updateForm(1L, "Java Advanced");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setAvatar("/avatar/new.png");
-        BindingResult bindingResult = mock(BindingResult.class);
         Course course = new Course();
         course.setId(1L);
         course.setName("Java Basics");
@@ -231,8 +224,8 @@ class CourseControllerTest {
     void shouldNotDeleteOldAvatarWhenUpdateAvatarUnchanged() {
         // Arrange
         UpdateCourseForm form = updateForm(1L, "Java Advanced");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setAvatar("/avatar/same.png");
-        BindingResult bindingResult = mock(BindingResult.class);
         Course course = new Course();
         course.setId(1L);
         course.setName("Java Basics");
@@ -276,12 +269,7 @@ class CourseControllerTest {
         course.setName("Java Basics");
         Page<Course> page = new PageImpl<>(Collections.singletonList(course), pageable, 1);
 
-        CourseDto dto = new CourseDto();
-        dto.setId(1L);
-        dto.setName("Java Basics");
-
         when(courseRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(courseMapper.fromEntityToCourseDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<CourseDto>>> result = courseController.list(criteria, pageable);
@@ -310,7 +298,6 @@ class CourseControllerTest {
         verify(syllabusRepository, never()).deleteAllByCourseId(any());
         verify(registrationRepository, never()).deleteAllByClassroomCourseId(any());
         verify(ratingRepository, never()).deleteAllByCourseId(any());
-        verify(reactionRepository, never()).deleteAllByCourseId(any());
     }
 
     @Test
@@ -333,8 +320,9 @@ class CourseControllerTest {
         assertThat(filesCaptor.getValue()).containsExactly("/avatar/to-delete.png");
         verify(courseRepository).deleteById(1L);
 
-        InOrder inOrder = inOrder(registrationRepository, classroomRepository, syllabusRepository, courseRepository);
+        InOrder inOrder = inOrder(registrationRepository, classroomStudentRepository, classroomRepository, syllabusRepository, courseRepository);
         inOrder.verify(registrationRepository).deleteAllByClassroomCourseId(1L);
+        inOrder.verify(classroomStudentRepository).deleteAllByClassroomCourseId(1L);
         inOrder.verify(classroomRepository).deleteAllByCourseId(1L);
         inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
         inOrder.verify(courseRepository).deleteById(1L);
@@ -342,10 +330,6 @@ class CourseControllerTest {
         InOrder ratingInOrder = inOrder(ratingRepository, courseRepository);
         ratingInOrder.verify(ratingRepository).deleteAllByCourseId(1L);
         ratingInOrder.verify(courseRepository).deleteById(1L);
-
-        InOrder reactionInOrder = inOrder(reactionRepository, courseRepository);
-        reactionInOrder.verify(reactionRepository).deleteAllByCourseId(1L);
-        reactionInOrder.verify(courseRepository).deleteById(1L);
     }
 
     @Test
@@ -389,87 +373,6 @@ class CourseControllerTest {
         verify(courseRepository).deleteById(1L);
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldDeleteAssignmentChildrenBeforeDeletingCourseWithAssignmentDescendants() {
-        // Arrange - regression test (FR-007): deleting a Course with Syllabus→Assignment
-        // descendants asserts that assignmentRepository.deleteAllBySyllabusCourseId is called
-        // BEFORE syllabusRepository.deleteAllByCourseId. The file attachment URLs collection and
-        // batched deletion is deferred to T005 when controller adds the aggregation logic.
-        Course course = new Course();
-        course.setId(1L);
-        course.setAvatar("/avatar/course.png");
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.findAvatarsByCourseId(1L))
-                .thenReturn(Arrays.asList("/avatar/chapter1.png", "/avatar/lesson1.png"));
-        when(assignmentRepository.findFileAttachmentUrlsBySyllabusCourseId(1L))
-                .thenReturn(Arrays.asList("/files/assignment1.pdf", "/files/assignment2.pdf"));
-
-        // Act
-        courseController.delete(1L);
-
-        // Assert - verify cascade delete order: assignments deleted before syllabuses
-        InOrder inOrder = inOrder(assignmentRepository, syllabusRepository);
-        inOrder.verify(assignmentRepository).deleteAllBySyllabusCourseId(1L);
-        inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldCascadeDeleteSyllabusMaterialsWhenCourseDeleted() {
-        // Arrange - regression test (FR-007): deleting a Course must also cascade-delete
-        // Syllabus→SyllabusMaterial descendants, batching their file URLs into the existing
-        // fileService.deleteFiles(...) call and deleting the rows before syllabusRepository's
-        // own deleteAllByCourseId cascade.
-        Course course = new Course();
-        course.setId(1L);
-        course.setAvatar("/avatar/course.png");
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
-        when(syllabusMaterialRepository.findFileUrlsBySyllabusCourseId(1L))
-                .thenReturn(Arrays.asList("/files/material1.pdf"));
-
-        // Act
-        courseController.delete(1L);
-
-        // Assert
-        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(fileService).deleteFiles(filesCaptor.capture());
-        assertThat(filesCaptor.getValue()).contains("/files/material1.pdf");
-
-        InOrder inOrder = inOrder(syllabusMaterialRepository, syllabusRepository);
-        inOrder.verify(syllabusMaterialRepository).deleteAllBySyllabusCourseId(1L);
-        inOrder.verify(syllabusRepository).deleteAllByCourseId(1L);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldCascadeDeleteNotificationGroupsWhenCourseDeleted() {
-        // Arrange - FR-009/FR-010: deleting a Course must also cascade-delete NotificationGroup
-        // rows scoped to every Classroom under it, batching their avatars into the existing
-        // fileService.deleteFiles(...) call and deleting the rows BEFORE
-        // classroomRepository.deleteAllByCourseId's own cascade.
-        Course course = new Course();
-        course.setId(1L);
-        course.setAvatar("/avatar/course.png");
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusRepository.findAvatarsByCourseId(1L)).thenReturn(Collections.emptyList());
-        when(notificationGroupRepository.findAvatarsByClassroomCourseId(1L))
-                .thenReturn(Collections.singletonList("/avatar/notification-group.png"));
-
-        // Act
-        courseController.delete(1L);
-
-        // Assert
-        ArgumentCaptor<List<String>> filesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(fileService).deleteFiles(filesCaptor.capture());
-        assertThat(filesCaptor.getValue()).contains("/avatar/notification-group.png");
-
-        InOrder inOrder = inOrder(notificationGroupRepository, classroomRepository);
-        inOrder.verify(notificationGroupRepository).deleteAllByClassroomCourseId(1L);
-        inOrder.verify(classroomRepository).deleteAllByCourseId(1L);
-    }
-
     // ------------------------------------------------------------ auto-complete
 
     @Test
@@ -485,13 +388,9 @@ class CourseControllerTest {
         course.setAvatar("/avatar/java.png");
         Page<Course> page = new PageImpl<>(Collections.singletonList(course), PageRequest.of(0, 10), 1);
 
-        CourseDto dto = new CourseDto();
-        dto.setId(1L);
-        dto.setName("Java Basics");
-        dto.setAvatar("/avatar/java.png");
+        course.setPrice(BigDecimal.TEN);
 
         when(courseRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
-        when(courseMapper.fromEntityToCourseDtoAutoCompleteList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<CourseDto>>> result = courseController.autoComplete(criteria);
@@ -500,7 +399,9 @@ class CourseControllerTest {
         assertThat(criteria.getStatus()).isEqualTo(AIConstant.STATUS_ACTIVE);
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
+        assertThat(result.getData().getContent().get(0).getId()).isEqualTo(1L);
+        assertThat(result.getData().getContent().get(0).getName()).isEqualTo("Java Basics");
         assertThat(result.getData().getContent().get(0).getAvatar()).isEqualTo("/avatar/java.png");
-        verify(courseMapper).fromEntityToCourseDtoAutoCompleteList(anyList());
+        assertThat(result.getData().getContent().get(0).getPrice()).isNull();
     }
 }

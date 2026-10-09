@@ -18,23 +18,18 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
-import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.StudentRepository;
-import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,13 +40,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/student")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class StudentController extends ABasicController {
     @Autowired
@@ -70,10 +63,6 @@ public class StudentController extends ABasicController {
     private ClassroomStudentRepository classroomStudentRepository;
     @Autowired
     private RatingRepository ratingRepository;
-    @Autowired
-    private ReactionRepository reactionRepository;
-    @Autowired
-    private SubmissionRepository submissionRepository;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -173,7 +162,7 @@ public class StudentController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('STU_L')")
-    public ApiMessageDto<ResponseListDto<List<StudentDto>>> list(StudentCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<StudentDto>>> list(StudentCriteria criteria, Pageable pageable) {
         Page<Student> students = studentRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(students, studentMapper::fromEntityToStudentDtoList), "List student success");
     }
@@ -185,20 +174,13 @@ public class StudentController extends ABasicController {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("[Student] Student not found", ErrorCode.STUDENT_ERROR_NOT_FOUND));
 
-        List<String> filesToDelete = new ArrayList<>();
         String avatarPath = student.getAccount().getAvatarPath();
         if (StringUtils.isNoneBlank(avatarPath)) {
-            filesToDelete.add(avatarPath);
-        }
-        filesToDelete.addAll(submissionRepository.findFileUrlsByStudentId(id));
-        if (!filesToDelete.isEmpty()) {
-            fileService.deleteFiles(filesToDelete);
+            fileService.deleteFile(avatarPath);
         }
 
         classroomStudentRepository.deleteAllByStudentId(id);
         ratingRepository.deleteAllByStudentId(id);
-        reactionRepository.deleteAllByStudentId(id);
-        submissionRepository.deleteAllByStudentId(id);
 
         student.setStatus(AIConstant.STATUS_DELETE);
         studentRepository.save(student);
@@ -207,7 +189,7 @@ public class StudentController extends ABasicController {
 
     @GetMapping(value = "/auto-complete", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('STU_L')")
-    public ApiMessageDto<ResponseListDto<List<StudentDto>>> autoComplete(StudentCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<StudentDto>>> autoComplete(StudentCriteria criteria, Pageable pageable) {
         Page<Student> students = studentRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(students, studentMapper::fromEntityToStudentAutoCompleteDtoList), "Get auto complete students success");
     }

@@ -16,10 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +27,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/permission")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class PermissionController extends ABasicController {
     @Autowired
@@ -38,6 +36,7 @@ public class PermissionController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('PER_C')")
+    @Transactional
     public ApiMessageDto<PermissionDto> create(@Valid @RequestBody CreatePermissionForm createPermissionForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
@@ -50,7 +49,7 @@ public class PermissionController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('PER_L')")
-    public ApiMessageDto<ResponseListDto<List<PermissionDto>>> list(PermissionCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<PermissionDto>>> list(PermissionCriteria criteria, Pageable pageable) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed list.");
         }
@@ -71,7 +70,8 @@ public class PermissionController extends ABasicController {
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('PER_U')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody UpdatePermissionForm updatePermissionForm, BindingResult bindingResult) {
+    @Transactional
+    public ApiMessageDto<Void> update(@Valid @RequestBody UpdatePermissionForm updatePermissionForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed update.");
         }

@@ -50,8 +50,8 @@ public interface CompanyMapper {
     @Named("fromEntityToCompanyDtoPublicList")
     List<CompanyDto> fromEntityToCompanyDtoPublicList(List<Company> companies);
 
-    @BeanMapping(ignoreByDefault = true)
     @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
     @Named("fromEntityToCompanyIdDto")
     CompanyDto fromEntityToCompanyIdDto(Company company);
 }

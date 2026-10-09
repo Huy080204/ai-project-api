@@ -1,7 +1,6 @@
 package com.ai.api.model.criteria;
 
 import com.ai.api.model.Account;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -25,7 +24,6 @@ public class AccountCriteria implements Serializable {
     private String fullName;
     private String phone;
 
-    @Schema(hidden = true)
     public Specification<Account> getSpecification() {
         return new Specification<Account>() {
             private static final long serialVersionUID = 1L;

@@ -23,14 +23,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,7 +43,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/mentor")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class MentorController extends ABasicController {
     @Autowired
@@ -151,14 +147,14 @@ public class MentorController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_L')")
-    public ApiMessageDto<ResponseListDto<List<MentorDto>>> list(MentorCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<MentorDto>>> list(MentorCriteria criteria, Pageable pageable) {
         Page<Mentor> mentors = mentorRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorDtoList), "List mentor success");
     }
 
     @GetMapping(value = "/auto-complete", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_L')")
-    public ApiMessageDto<ResponseListDto<List<MentorDto>>> autoComplete(MentorCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<MentorDto>>> autoComplete(MentorCriteria criteria, Pageable pageable) {
         Page<Mentor> mentors = mentorRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorAutoCompleteDtoList), "Get auto complete mentors success");
     }
@@ -188,7 +184,7 @@ public class MentorController extends ABasicController {
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<MentorDto>>> publicList(MentorCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<MentorDto>>> publicList(MentorCriteria criteria, Pageable pageable) {
         criteria.setStatus(AIConstant.STATUS_ACTIVE);
         Page<Mentor> mentors = mentorRepository.findAll(criteria.getCriteria(), pageable);
         return makeSuccessResponse(makeResponseListDto(mentors, mentorMapper::fromEntityToMentorDtoPublicList), "List mentor success");

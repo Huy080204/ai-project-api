@@ -17,21 +17,16 @@ import com.ai.api.model.criteria.ClassroomCriteria;
 import com.ai.api.repository.ClassroomRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
-import com.ai.api.repository.NotificationGroupRepository;
 import com.ai.api.repository.RegistrationRepository;
-import com.ai.api.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,12 +37,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/v1/class-room")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class ClassroomController extends ABasicController {
     @Autowired
@@ -64,12 +57,6 @@ public class ClassroomController extends ABasicController {
 
     @Autowired
     private ClassroomStudentRepository classroomStudentRepository;
-
-    @Autowired
-    private NotificationGroupRepository notificationGroupRepository;
-
-    @Autowired
-    private FileService fileService;
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -110,7 +97,7 @@ public class ClassroomController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLR_L')")
-    public ApiMessageDto<ResponseListDto<List<ClassroomDto>>> list(ClassroomCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<ClassroomDto>>> list(ClassroomCriteria criteria, Pageable pageable) {
         Page<Classroom> classrooms = classroomRepository.findAll(criteria.getSpecification(), pageable);
         return makeSuccessResponse(makeResponseListDto(classrooms, classroomMapper::fromEntityToClassroomDtoList), "List classroom success");
     }
@@ -121,12 +108,11 @@ public class ClassroomController extends ABasicController {
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         Classroom classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
-        List<String> filesToDelete = new ArrayList<>();
-        filesToDelete.addAll(notificationGroupRepository.findAvatarsByClassroomId(id));
-        fileService.deleteFiles(filesToDelete);
+        if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState())) {
+            throw new BadRequestException("Unable to delete classroom that is not pending", ErrorCode.CLASSROOM_ERROR_UNABLE_DELETE);
+        }
         registrationRepository.deleteAllByClassroomId(id);
         classroomStudentRepository.deleteAllByClassroomId(id);
-        notificationGroupRepository.deleteAllByClassroomId(id);
         classroomRepository.deleteById(id);
         return makeSuccessResponse("Delete classroom success");
     }
@@ -139,7 +125,7 @@ public class ClassroomController extends ABasicController {
     }
 
     @GetMapping(value = "/public/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<ResponseListDto<List<ClassroomDto>>> publicList(ClassroomCriteria criteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<ClassroomDto>>> publicList(ClassroomCriteria criteria, Pageable pageable) {
         criteria.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
         Page<Classroom> classrooms = classroomRepository.findAll(criteria.getSpecification(), pageable);
         return makeSuccessResponse(makeResponseListDto(classrooms, classroomMapper::fromEntityToClassroomDtoList), "List classroom success");

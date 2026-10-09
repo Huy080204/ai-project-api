@@ -22,9 +22,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,7 +35,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/group")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class GroupController extends ABasicController {
     @Autowired
@@ -49,6 +48,7 @@ public class GroupController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_C')")
+    @Transactional
     public ApiMessageDto<GroupDto> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
@@ -73,6 +73,7 @@ public class GroupController extends ABasicController {
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_U')")
+    @Transactional
     public ApiMessageDto<Void> update(@Valid @RequestBody UpdateGroupForm updateGroupForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed update.");
@@ -110,7 +111,7 @@ public class GroupController extends ABasicController {
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_L')")
-    public ApiMessageDto<ResponseListDto<List<GroupDto>>> list(GroupCriteria groupCriteria, @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ApiMessageDto<ResponseListDto<List<GroupDto>>> list(GroupCriteria groupCriteria, Pageable pageable) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed list group.");
         }
@@ -120,6 +121,7 @@ public class GroupController extends ABasicController {
 
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_D')")
+    @Transactional
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed list group.");

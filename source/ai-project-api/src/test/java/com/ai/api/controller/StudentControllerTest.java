@@ -10,9 +10,9 @@ import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.student.CreateStudentForm;
 import com.ai.api.form.student.UpdateStudentForm;
 import com.ai.api.jwt.BaseJwt;
+import com.ai.api.mapper.AccountMapper;
+import com.ai.api.mapper.GroupMapper;
 import com.ai.api.mapper.StudentMapper;
-import com.ai.api.mapper.StudentMapperImpl;
-import com.ai.api.mapper.AccountMapperImpl;
 import com.ai.api.model.Account;
 import com.ai.api.model.Group;
 import com.ai.api.model.Student;
@@ -21,16 +21,17 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.RatingRepository;
-import com.ai.api.repository.ReactionRepository;
 import com.ai.api.repository.StudentRepository;
-import com.ai.api.repository.SubmissionRepository;
 import com.ai.api.service.FileService;
 import com.ai.api.service.impl.UserServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -38,6 +39,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Collections;
@@ -47,11 +49,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.inOrder;
 
 /**
  * Unit test for {@link StudentController#create}, written FIRST against the planned
@@ -81,14 +81,8 @@ class StudentControllerTest {
     @Mock
     private RatingRepository ratingRepository;
 
-    @Mock
-    private ReactionRepository reactionRepository;
-
-    @Mock
-    private SubmissionRepository submissionRepository;
-
-    @Mock
-    private StudentMapper studentMapper;
+    @Spy
+    private StudentMapper studentMapper = Mappers.getMapper(StudentMapper.class);
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -101,6 +95,16 @@ class StudentControllerTest {
 
     @InjectMocks
     private StudentController studentController;
+
+    @BeforeEach
+    void setUp() {
+        // StudentMapper delegates account to AccountMapper, which delegates group to GroupMapper
+        // (`uses = {...}`); the generated impls @Autowired-inject them, which
+        // Mappers.getMapper(...) does not do.
+        AccountMapper accountMapper = Mappers.getMapper(AccountMapper.class);
+        ReflectionTestUtils.setField(accountMapper, "groupMapper", Mappers.getMapper(GroupMapper.class));
+        ReflectionTestUtils.setField(studentMapper, "accountMapper", accountMapper);
+    }
 
     private CreateStudentForm createForm(String username, String email, String phone,
                                           String password, String fullName, String avatarPath,
@@ -124,6 +128,7 @@ class StudentControllerTest {
         // Arrange
         CreateStudentForm form = createForm("student1", "student1@example.com", "0912345678",
                 "Password1!", "Student One", null, 1L, "123 Main St");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         Group group = new Group();
         group.setId(1L);
@@ -136,28 +141,37 @@ class StudentControllerTest {
         when(accountRepository.existsByPhoneAndStatusNot("0912345678", AIConstant.STATUS_DELETE))
                 .thenReturn(false);
 
-        Account mappedAccount = new Account();
-        when(studentMapper.fromFormToAccount(form)).thenReturn(mappedAccount);
         when(passwordEncoder.encode("Password1!")).thenReturn("encoded-password");
+        when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> {
+            Student saved = invocation.getArgument(0);
+            saved.setId(9L);
+            return saved;
+        });
 
-        Student mappedStudent = new Student();
-        when(studentMapper.fromFormToEntity(form)).thenReturn(mappedStudent);
-
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act
         ApiMessageDto<StudentDto> result = studentController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(9L);
 
-        assertThat(mappedAccount.getKind()).isEqualTo(AIConstant.USER_KIND_STUDENT);
-        assertThat(mappedAccount.getPassword()).isEqualTo("encoded-password");
-        assertThat(mappedAccount.getGroup()).isEqualTo(group);
-        verify(accountRepository).save(mappedAccount);
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        assertThat(savedAccount.getUsername()).isEqualTo("student1");
+        assertThat(savedAccount.getEmail()).isEqualTo("student1@example.com");
+        assertThat(savedAccount.getPhone()).isEqualTo("0912345678");
+        assertThat(savedAccount.getFullName()).isEqualTo("Student One");
+        assertThat(savedAccount.getKind()).isEqualTo(AIConstant.USER_KIND_STUDENT);
+        assertThat(savedAccount.getPassword()).isEqualTo("encoded-password");
+        assertThat(savedAccount.getGroup()).isSameAs(group);
 
-        assertThat(mappedStudent.getAccount()).isEqualTo(mappedAccount);
-        verify(studentRepository).save(mappedStudent);
+        ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
+        verify(studentRepository).save(studentCaptor.capture());
+        Student savedStudent = studentCaptor.getValue();
+        assertThat(savedStudent.getAddress()).isEqualTo("123 Main St");
+        assertThat(savedStudent.getAccount()).isSameAs(savedAccount);
     }
 
     // ------------------------------------------------------------- (b) wrong group kind
@@ -167,6 +181,7 @@ class StudentControllerTest {
         // Arrange
         CreateStudentForm form = createForm("student1", "student1@example.com", "0912345678",
                 "Password1!", "Student One", null, 1L, "123 Main St");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         Group group = new Group();
         group.setId(1L);
@@ -174,7 +189,6 @@ class StudentControllerTest {
 
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
 
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act + Assert
         assertThatThrownBy(() -> studentController.create(form, bindingResult))
@@ -190,10 +204,10 @@ class StudentControllerTest {
         // Arrange
         CreateStudentForm form = createForm("student1", "student1@example.com", "0912345678",
                 "Password1!", "Student One", null, 99L, "123 Main St");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         when(groupRepository.findById(99L)).thenReturn(Optional.empty());
 
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act + Assert
         assertThatThrownBy(() -> studentController.create(form, bindingResult))
@@ -209,6 +223,7 @@ class StudentControllerTest {
         // Arrange
         CreateStudentForm form = createForm("student1", "student1@example.com", "0912345678",
                 "Password1!", "Student One", null, 1L, "123 Main St");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         Group group = new Group();
         group.setId(1L);
@@ -217,7 +232,6 @@ class StudentControllerTest {
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
         when(accountRepository.existsByUsername("student1")).thenReturn(true);
 
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act + Assert
         assertThatThrownBy(() -> studentController.create(form, bindingResult))
@@ -230,16 +244,8 @@ class StudentControllerTest {
 
     @Test
     void shouldReturnAutoCompleteShapeWithAccountUsernameEmailPhoneGroupNullWhenAutoComplete() {
-        // Arrange - wire up the REAL generated mapper chain (StudentMapperImpl -> AccountMapperImpl)
-        // so this test proves the actual @Named delegation used by the controller, not a stub.
-        StudentMapperImpl realStudentMapper = new StudentMapperImpl();
-        AccountMapperImpl realAccountMapper = new AccountMapperImpl();
-        ReflectionTestUtils.setField(realStudentMapper, "accountMapper", realAccountMapper);
-
-        StudentController controller = new StudentController();
-        ReflectionTestUtils.setField(controller, "studentRepository", studentRepository);
-        ReflectionTestUtils.setField(controller, "studentMapper", realStudentMapper);
-
+        // Arrange - the Mapper is real (see setUp), so this test proves the actual @Named
+        // delegation StudentMapper -> AccountMapper used by the controller, not a stub.
         Group group = new Group();
         group.setId(1L);
 
@@ -265,7 +271,7 @@ class StudentControllerTest {
                 .thenReturn(page);
 
         // Act
-        ApiMessageDto<ResponseListDto<List<StudentDto>>> result = controller.autoComplete(criteria, pageable);
+        ApiMessageDto<ResponseListDto<List<StudentDto>>> result = studentController.autoComplete(criteria, pageable);
 
         // Assert
         StudentDto studentDto = result.getData().getContent().get(0);
@@ -302,7 +308,7 @@ class StudentControllerTest {
         when(studentRepository.findById(1L)).thenReturn(Optional.of(changedStudent));
 
         // Act
-        studentController.update(changedForm, mock(BindingResult.class));
+        studentController.update(changedForm, new BeanPropertyBindingResult(changedForm, "form"));
 
         // Assert
         verify(fileService).deleteFile("/avatar/old.png");
@@ -323,7 +329,7 @@ class StudentControllerTest {
         when(studentRepository.findById(2L)).thenReturn(Optional.of(unchangedStudent));
 
         // Act
-        studentController.update(unchangedForm, mock(BindingResult.class));
+        studentController.update(unchangedForm, new BeanPropertyBindingResult(unchangedForm, "form"));
 
         // Assert - still only the one deleteFile call from the changed case above
         verify(fileService, never()).deleteFile("/avatar/same.png");
@@ -347,10 +353,9 @@ class StudentControllerTest {
         studentController.delete(1L);
 
         // Assert
-        verify(fileService).deleteFiles(Collections.singletonList("/avatar/to-delete.png"));
+        verify(fileService).deleteFile("/avatar/to-delete.png");
         verify(classroomStudentRepository).deleteAllByStudentId(1L);
         verify(ratingRepository).deleteAllByStudentId(1L);
-        verify(reactionRepository).deleteAllByStudentId(1L);
 
         // Arrange - blank/null avatar path
         Account accountWithoutAvatar = new Account();
@@ -367,55 +372,6 @@ class StudentControllerTest {
 
         // Assert - still only the one deleteFile call from the non-blank case above
         verify(fileService, never()).deleteFile(null);
-    }
-
-    @Test
-    void shouldCascadeDeleteSubmissionsBeforeSoftDeletingStudent() {
-        Account account = new Account();
-        Student student = new Student();
-        student.setId(1L);
-        student.setAccount(account);
-
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
-
-        studentController.delete(1L);
-
-        InOrder order = inOrder(submissionRepository, studentRepository);
-        order.verify(submissionRepository).deleteAllByStudentId(1L);
-        order.verify(studentRepository).save(student);
-    }
-
-    @Test
-    void shouldCleanUpSubmissionFilesBeforeCascadeDeletingSubmissions() {
-        Account account = new Account();
-        Student student = new Student();
-        student.setId(1L);
-        student.setAccount(account);
-
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
-        when(submissionRepository.findFileUrlsByStudentId(1L))
-                .thenReturn(Collections.singletonList("submission-file.pdf"));
-
-        studentController.delete(1L);
-
-        InOrder order = inOrder(fileService, submissionRepository);
-        order.verify(fileService).deleteFiles(Collections.singletonList("submission-file.pdf"));
-        order.verify(submissionRepository).deleteAllByStudentId(1L);
-    }
-
-    @Test
-    void shouldNotCallDeleteFilesWhenNoSubmissionFileUrls() {
-        Account account = new Account();
-        Student student = new Student();
-        student.setId(1L);
-        student.setAccount(account);
-
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
-        when(submissionRepository.findFileUrlsByStudentId(1L)).thenReturn(Collections.emptyList());
-
-        studentController.delete(1L);
-
-        verify(fileService, never()).deleteFiles(any());
     }
 
     // --------------------------------------------------- (h) update sets new unique username (FR-003)
@@ -442,7 +398,7 @@ class StudentControllerTest {
         when(accountRepository.existsByUsername("newUsername")).thenReturn(false);
 
         // Act
-        studentController.update(form, mock(BindingResult.class));
+        studentController.update(form, new BeanPropertyBindingResult(form, "form"));
 
         // Assert
         assertThat(account.getUsername()).isEqualTo("newUsername");
@@ -473,7 +429,7 @@ class StudentControllerTest {
         when(accountRepository.existsByUsername("takenUsername")).thenReturn(true);
 
         // Act + Assert
-        assertThatThrownBy(() -> studentController.update(form, mock(BindingResult.class)))
+        assertThatThrownBy(() -> studentController.update(form, new BeanPropertyBindingResult(form, "form")))
                 .isInstanceOfSatisfying(BadRequestException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.ACCOUNT_ERROR_USERNAME_EXIST));
         verify(accountRepository, never()).save(any());
@@ -503,7 +459,7 @@ class StudentControllerTest {
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
 
         // Act
-        studentController.update(form, mock(BindingResult.class));
+        studentController.update(form, new BeanPropertyBindingResult(form, "form"));
 
         // Assert
         verify(accountRepository, never()).existsByUsername(any());
@@ -535,7 +491,7 @@ class StudentControllerTest {
         when(passwordEncoder.encode("NewPassword1!")).thenReturn("newEncodedPassword");
 
         // Act
-        studentController.update(form, mock(BindingResult.class));
+        studentController.update(form, new BeanPropertyBindingResult(form, "form"));
 
         // Assert
         verify(passwordEncoder).encode("NewPassword1!");
@@ -567,7 +523,7 @@ class StudentControllerTest {
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
 
         // Act
-        studentController.update(form, mock(BindingResult.class));
+        studentController.update(form, new BeanPropertyBindingResult(form, "form"));
 
         // Assert
         verify(passwordEncoder, never()).encode(any());
@@ -585,21 +541,23 @@ class StudentControllerTest {
 
         Account account = new Account();
         account.setId(5L);
+        account.setFullName("Student One");
 
         Student student = new Student();
         student.setId(5L);
+        student.setAddress("123 Main St");
         student.setAccount(account);
 
-        StudentDto studentDto = new StudentDto();
-
         when(studentRepository.findByIdAndStatus(5L, AIConstant.STATUS_ACTIVE)).thenReturn(Optional.of(student));
-        when(studentMapper.fromEntityToStudentDto(student)).thenReturn(studentDto);
 
         // Act
         ApiMessageDto<StudentDto> result = studentController.profile();
 
         // Assert
-        assertThat(result.getData()).isEqualTo(studentDto);
+        assertThat(result.getData().getId()).isEqualTo(5L);
+        assertThat(result.getData().getAddress()).isEqualTo("123 Main St");
+        assertThat(result.getData().getAccount().getId()).isEqualTo(5L);
+        assertThat(result.getData().getAccount().getFullName()).isEqualTo("Student One");
     }
 
     // ------------------------------------------- (n) profile() throws NotFoundException when missing
