@@ -28,7 +28,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,7 +47,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/syllabus")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class SyllabusController extends ABasicController {
     @Autowired
@@ -66,7 +64,7 @@ public class SyllabusController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('SYL_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateSyllabusForm createSyllabusForm, BindingResult bindingResult) {
+    public ApiMessageDto<SyllabusDto> create(@Valid @RequestBody CreateSyllabusForm createSyllabusForm, BindingResult bindingResult) {
         Course course = courseRepository.findById(createSyllabusForm.getCourseId())
                 .orElseThrow(() -> new NotFoundException("Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
         Syllabus syllabus = syllabusMapper.fromCreateSyllabusFormToEntity(createSyllabusForm);
@@ -88,7 +86,7 @@ public class SyllabusController extends ABasicController {
         }
 
         syllabusRepository.save(syllabus);
-        return makeSuccessResponse("Create syllabus success");
+        return makeSuccessResponse(syllabusMapper.fromEntityToSyllabusIdDto(syllabus), "Create syllabus success");
     }
 
     @Transactional

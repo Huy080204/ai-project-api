@@ -31,7 +31,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/company")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class CompanyController extends ABasicController {
     @Autowired
@@ -46,13 +45,13 @@ public class CompanyController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COM_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateCompanyForm form, BindingResult bindingResult) {
+    public ApiMessageDto<CompanyDto> create(@Valid @RequestBody CreateCompanyForm form, BindingResult bindingResult) {
         if (companyRepository.existsByName(form.getName())) {
             throw new BadRequestException("[Company] Company name exist", ErrorCode.COMPANY_ERROR_NAME_EXIST);
         }
         Company company = companyMapper.fromFormToEntity(form);
         companyRepository.save(company);
-        return makeSuccessResponse("Create Company success");
+        return makeSuccessResponse(companyMapper.fromEntityToCompanyIdDto(company), "Create Company success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

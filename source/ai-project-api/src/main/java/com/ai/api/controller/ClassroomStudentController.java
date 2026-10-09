@@ -35,7 +35,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,7 +51,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/classroom-student")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class ClassroomStudentController extends ABasicController {
     @Autowired
@@ -82,7 +80,7 @@ public class ClassroomStudentController extends ABasicController {
     @Transactional
     @PostMapping(value = "/register-by-student", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_C')")
-    public ApiMessageDto<Void> register(@Valid @RequestBody RegisterClassroomStudentForm registerClassroomStudentForm, BindingResult bindingResult) {
+    public ApiMessageDto<ClassroomStudentDto> register(@Valid @RequestBody RegisterClassroomStudentForm registerClassroomStudentForm, BindingResult bindingResult) {
         Classroom classroom = classroomRepository.findById(registerClassroomStudentForm.getClassroomId())
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
         Student student = studentRepository.findById(registerClassroomStudentForm.getStudentId())
@@ -98,7 +96,7 @@ public class ClassroomStudentController extends ABasicController {
         classroomStudent.setStudent(student);
         classroomStudent.setDateRegistration(new Date());
         classroomStudentRepository.save(classroomStudent);
-        return makeSuccessResponse("Register classroom student success");
+        return makeSuccessResponse(classroomStudentMapper.fromEntityToClassroomStudentIdDto(classroomStudent), "Register classroom student success");
     }
 
     @Transactional
@@ -127,7 +125,7 @@ public class ClassroomStudentController extends ABasicController {
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_D')")
     public ApiMessageDto<Void> delete(@PathVariable Long id) {
-        ClassroomStudent classroomStudent = classroomStudentRepository.findById(id)
+        classroomStudentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Classroom student not found", ErrorCode.CLASSROOM_STUDENT_ERROR_NOT_FOUND));
         classroomStudentRepository.deleteById(id);
         return makeSuccessResponse("Delete classroom student success");
@@ -146,7 +144,7 @@ public class ClassroomStudentController extends ABasicController {
     @Transactional
     @PostMapping(value = "/register-from-registration", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLS_C')")
-    public ApiMessageDto<Void> registerFromRegistration(@Valid @RequestBody RegisterFromRegistrationForm registerFromRegistrationForm, BindingResult bindingResult) {
+    public ApiMessageDto<ClassroomStudentDto> registerFromRegistration(@Valid @RequestBody RegisterFromRegistrationForm registerFromRegistrationForm, BindingResult bindingResult) {
         Registration registration = registrationRepository.findById(registerFromRegistrationForm.getRegistrationId())
                 .orElseThrow(() -> new NotFoundException("Registration not found", ErrorCode.REGISTRATION_ERROR_NOT_FOUND));
 
@@ -160,7 +158,7 @@ public class ClassroomStudentController extends ABasicController {
 
         registrationRepository.deleteById(registration.getId());
 
-        return makeSuccessResponse("Register classroom student from registration success");
+        return makeSuccessResponse(classroomStudentMapper.fromEntityToClassroomStudentIdDto(classroomStudent), "Register classroom student from registration success");
     }
 
     private Student resolveStudent(Registration registration, RegisterFromRegistrationForm form) {

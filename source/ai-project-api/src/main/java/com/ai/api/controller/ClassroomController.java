@@ -27,7 +27,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,7 +41,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/class-room")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class ClassroomController extends ABasicController {
     @Autowired
@@ -63,13 +61,13 @@ public class ClassroomController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CLR_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateClassroomForm createClassroomForm, BindingResult bindingResult) {
+    public ApiMessageDto<ClassroomDto> create(@Valid @RequestBody CreateClassroomForm createClassroomForm, BindingResult bindingResult) {
         Course course = courseRepository.findById(createClassroomForm.getCourseId())
                 .orElseThrow(() -> new NotFoundException("Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
         Classroom classroom = classroomMapper.fromCreateClassroomFormToEntity(createClassroomForm);
         classroom.setCourse(course);
         classroomRepository.save(classroom);
-        return makeSuccessResponse("Create classroom success");
+        return makeSuccessResponse(classroomMapper.fromEntityToClassroomIdDto(classroom), "Create classroom success");
     }
 
     @Transactional

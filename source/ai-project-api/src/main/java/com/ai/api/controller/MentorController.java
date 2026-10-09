@@ -28,7 +28,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,7 +43,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/mentor")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class MentorController extends ABasicController {
     @Autowired
@@ -63,7 +61,7 @@ public class MentorController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MEN_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateMentorForm form, BindingResult bindingResult) {
+    public ApiMessageDto<MentorDto> create(@Valid @RequestBody CreateMentorForm form, BindingResult bindingResult) {
         Group group = groupRepository.findById(form.getGroupId())
                 .orElseThrow(() -> new BadRequestException("[Group] Group not found", ErrorCode.GROUP_ERROR_NOT_FOUND));
 
@@ -93,7 +91,7 @@ public class MentorController extends ABasicController {
         mentor.setAccount(account);
         mentorRepository.save(mentor);
 
-        return makeSuccessResponse("Create mentor success");
+        return makeSuccessResponse(mentorMapper.fromEntityToMentorIdDto(mentor), "Create mentor success");
     }
 
     @Transactional

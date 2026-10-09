@@ -9,9 +9,8 @@ import com.ai.api.exception.BadRequestException;
 import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.mentor.CreateMentorForm;
 import com.ai.api.jwt.BaseJwt;
+import com.ai.api.mapper.AccountMapper;
 import com.ai.api.mapper.MentorMapper;
-import com.ai.api.mapper.MentorMapperImpl;
-import com.ai.api.mapper.AccountMapperImpl;
 import com.ai.api.model.Account;
 import com.ai.api.model.Group;
 import com.ai.api.model.Mentor;
@@ -20,10 +19,14 @@ import com.ai.api.repository.AccountRepository;
 import com.ai.api.repository.GroupRepository;
 import com.ai.api.repository.MentorRepository;
 import com.ai.api.service.impl.UserServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -31,6 +34,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Collections;
@@ -40,7 +44,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,8 +70,8 @@ class MentorControllerTest {
     @Mock
     private GroupRepository groupRepository;
 
-    @Mock
-    private MentorMapper mentorMapper;
+    @Spy
+    private MentorMapper mentorMapper = Mappers.getMapper(MentorMapper.class);
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -78,6 +81,13 @@ class MentorControllerTest {
 
     @InjectMocks
     private MentorController mentorController;
+
+    @BeforeEach
+    void setUp() {
+        // MentorMapper delegates account to AccountMapper (`uses = {...}`); the generated impl
+        // @Autowired-injects it, which Mappers.getMapper(...) does not do.
+        ReflectionTestUtils.setField(mentorMapper, "accountMapper", Mappers.getMapper(AccountMapper.class));
+    }
 
     private BaseJwt jwtFor(long accountId) {
         BaseJwt jwt = new BaseJwt();
@@ -107,6 +117,7 @@ class MentorControllerTest {
         // Arrange
         CreateMentorForm form = createForm("mentor1", "mentor1@example.com", "0912345678",
                 "Password1!", "Mentor One", 1L, "Senior Mentor", "Experienced mentor");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         Group group = new Group();
         group.setId(1L);
@@ -119,28 +130,38 @@ class MentorControllerTest {
         when(accountRepository.existsByPhoneAndStatusNot("0912345678", AIConstant.STATUS_DELETE))
                 .thenReturn(false);
 
-        Account mappedAccount = new Account();
-        when(mentorMapper.fromFormToAccount(form)).thenReturn(mappedAccount);
         when(passwordEncoder.encode("Password1!")).thenReturn("encoded-password");
+        when(mentorRepository.save(any(Mentor.class))).thenAnswer(invocation -> {
+            Mentor saved = invocation.getArgument(0);
+            saved.setId(7L);
+            return saved;
+        });
 
-        Mentor mappedMentor = new Mentor();
-        when(mentorMapper.fromFormToEntity(form)).thenReturn(mappedMentor);
-
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act
-        ApiMessageDto<Void> result = mentorController.create(form, bindingResult);
+        ApiMessageDto<MentorDto> result = mentorController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(7L);
 
-        assertThat(mappedAccount.getKind()).isEqualTo(AIConstant.USER_KIND_MENTOR);
-        assertThat(mappedAccount.getPassword()).isEqualTo("encoded-password");
-        assertThat(mappedAccount.getGroup()).isEqualTo(group);
-        verify(accountRepository).save(mappedAccount);
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        assertThat(savedAccount.getUsername()).isEqualTo("mentor1");
+        assertThat(savedAccount.getEmail()).isEqualTo("mentor1@example.com");
+        assertThat(savedAccount.getPhone()).isEqualTo("0912345678");
+        assertThat(savedAccount.getFullName()).isEqualTo("Mentor One");
+        assertThat(savedAccount.getKind()).isEqualTo(AIConstant.USER_KIND_MENTOR);
+        assertThat(savedAccount.getPassword()).isEqualTo("encoded-password");
+        assertThat(savedAccount.getGroup()).isSameAs(group);
 
-        assertThat(mappedMentor.getAccount()).isEqualTo(mappedAccount);
-        verify(mentorRepository).save(mappedMentor);
+        ArgumentCaptor<Mentor> mentorCaptor = ArgumentCaptor.forClass(Mentor.class);
+        verify(mentorRepository).save(mentorCaptor.capture());
+        Mentor savedMentor = mentorCaptor.getValue();
+        assertThat(savedMentor.getPosition()).isEqualTo("Senior Mentor");
+        assertThat(savedMentor.getDescription()).isEqualTo("Experienced mentor");
+        assertThat(savedMentor.getAccount()).isSameAs(savedAccount);
     }
 
     // ------------------------------------------------------------- (b) wrong group kind
@@ -150,6 +171,7 @@ class MentorControllerTest {
         // Arrange
         CreateMentorForm form = createForm("mentor1", "mentor1@example.com", "0912345678",
                 "Password1!", "Mentor One", 1L, "Senior Mentor", "Experienced mentor");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         Group group = new Group();
         group.setId(1L);
@@ -157,7 +179,6 @@ class MentorControllerTest {
 
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
 
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act + Assert
         assertThatThrownBy(() -> mentorController.create(form, bindingResult))
@@ -173,10 +194,10 @@ class MentorControllerTest {
         // Arrange
         CreateMentorForm form = createForm("mentor1", "mentor1@example.com", "0912345678",
                 "Password1!", "Mentor One", 99L, "Senior Mentor", "Experienced mentor");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         when(groupRepository.findById(99L)).thenReturn(Optional.empty());
 
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act + Assert
         assertThatThrownBy(() -> mentorController.create(form, bindingResult))
@@ -192,6 +213,7 @@ class MentorControllerTest {
         // Arrange
         CreateMentorForm form = createForm("mentor1", "mentor1@example.com", "0912345678",
                 "Password1!", "Mentor One", 1L, "Senior Mentor", "Experienced mentor");
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
 
         Group group = new Group();
         group.setId(1L);
@@ -200,7 +222,6 @@ class MentorControllerTest {
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
         when(accountRepository.existsByUsername("mentor1")).thenReturn(true);
 
-        BindingResult bindingResult = mock(BindingResult.class);
 
         // Act + Assert
         assertThatThrownBy(() -> mentorController.create(form, bindingResult))
@@ -213,16 +234,8 @@ class MentorControllerTest {
 
     @Test
     void shouldReturnAutoCompleteShapeWithAccountUsernameEmailPhoneGroupNullWhenAutoComplete() {
-        // Arrange - wire up the REAL generated mapper chain (MentorMapperImpl -> AccountMapperImpl)
-        // so this test proves the actual @Named delegation used by the controller, not a stub.
-        MentorMapperImpl realMentorMapper = new MentorMapperImpl();
-        AccountMapperImpl realAccountMapper = new AccountMapperImpl();
-        ReflectionTestUtils.setField(realMentorMapper, "accountMapper", realAccountMapper);
-
-        MentorController controller = new MentorController();
-        ReflectionTestUtils.setField(controller, "mentorRepository", mentorRepository);
-        ReflectionTestUtils.setField(controller, "mentorMapper", realMentorMapper);
-
+        // Arrange - the Mapper is real (see setUp), so this test proves the actual @Named
+        // delegation MentorMapper -> AccountMapper used by the controller, not a stub.
         Group group = new Group();
         group.setId(1L);
 
@@ -249,7 +262,7 @@ class MentorControllerTest {
                 .thenReturn(page);
 
         // Act
-        ApiMessageDto<ResponseListDto<List<MentorDto>>> result = controller.autoComplete(criteria, pageable);
+        ApiMessageDto<ResponseListDto<List<MentorDto>>> result = mentorController.autoComplete(criteria, pageable);
 
         // Assert
         MentorDto mentorDto = result.getData().getContent().get(0);
@@ -279,18 +292,17 @@ class MentorControllerTest {
 
         Mentor mentor = new Mentor();
         mentor.setId(1L);
-
-        MentorDto mentorDto = new MentorDto();
+        mentor.setPosition("Senior Mentor");
 
         when(mentorRepository.findByIdAndStatus(1L, AIConstant.STATUS_ACTIVE)).thenReturn(Optional.of(mentor));
-        when(mentorMapper.fromEntityToMentorDto(mentor)).thenReturn(mentorDto);
 
         // Act
         ApiMessageDto<MentorDto> result = mentorController.profile();
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData()).isEqualTo(mentorDto);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getPosition()).isEqualTo("Senior Mentor");
     }
 
     @Test

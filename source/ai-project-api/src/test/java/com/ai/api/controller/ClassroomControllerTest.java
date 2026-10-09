@@ -11,6 +11,7 @@ import com.ai.api.form.classroom.ChangeClassroomStateForm;
 import com.ai.api.form.classroom.CreateClassroomForm;
 import com.ai.api.form.classroom.UpdateClassroomForm;
 import com.ai.api.mapper.ClassroomMapper;
+import com.ai.api.mapper.CourseMapper;
 import com.ai.api.model.Classroom;
 import com.ai.api.model.Course;
 import com.ai.api.model.criteria.ClassroomCriteria;
@@ -19,18 +20,23 @@ import com.ai.api.repository.ClassroomStudentRepository;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RegistrationRepository;
 import com.ai.api.service.impl.UserServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.math.BigDecimal;
@@ -43,10 +49,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,14 +76,21 @@ class ClassroomControllerTest {
     @Mock
     private ClassroomStudentRepository classroomStudentRepository;
 
-    @Mock
-    private ClassroomMapper classroomMapper;
+    @Spy
+    private ClassroomMapper classroomMapper = Mappers.getMapper(ClassroomMapper.class);
 
     @Mock
     private UserServiceImpl userService;
 
     @InjectMocks
     private ClassroomController classroomController;
+
+    @BeforeEach
+    void setUp() {
+        // ClassroomMapper delegates course to CourseMapper (`uses = {...}`); the generated impl
+        // @Autowired-injects it, which Mappers.getMapper(...) does not do.
+        ReflectionTestUtils.setField(classroomMapper, "courseMapper", Mappers.getMapper(CourseMapper.class));
+    }
 
     private CreateClassroomForm createForm(Long courseId) {
         CreateClassroomForm form = new CreateClassroomForm();
@@ -113,28 +124,37 @@ class ClassroomControllerTest {
     void shouldCreateClassroomSuccessfully() {
         // Arrange
         CreateClassroomForm form = createForm(5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = new Course();
         course.setId(5L);
-        Classroom classroom = new Classroom();
 
         when(courseRepository.findById(5L)).thenReturn(Optional.of(course));
-        when(classroomMapper.fromCreateClassroomFormToEntity(form)).thenReturn(classroom);
+        when(classroomRepository.save(any(Classroom.class))).thenAnswer(invocation -> {
+            Classroom saved = invocation.getArgument(0);
+            saved.setId(10L);
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = classroomController.create(form, bindingResult);
+        ApiMessageDto<ClassroomDto> result = classroomController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(classroom.getCourse()).isEqualTo(course);
-        verify(classroomRepository).save(classroom);
+        assertThat(result.getData().getId()).isEqualTo(10L);
+        ArgumentCaptor<Classroom> classroomCaptor = ArgumentCaptor.forClass(Classroom.class);
+        verify(classroomRepository).save(classroomCaptor.capture());
+        Classroom saved = classroomCaptor.getValue();
+        assertThat(saved.getCourse()).isSameAs(course);
+        assertThat(saved.getPrice()).isEqualTo(BigDecimal.TEN);
+        assertThat(saved.getStartDate()).isEqualTo(form.getStartDate());
+        assertThat(saved.getEndDate()).isEqualTo(form.getEndDate());
     }
 
     @Test
     void shouldThrowNotFoundWhenCreateClassroomCourseNotFound() {
         // Arrange
         CreateClassroomForm form = createForm(999L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -150,7 +170,7 @@ class ClassroomControllerTest {
     void shouldUpdateClassroomSuccessfully() {
         // Arrange
         UpdateClassroomForm form = updateForm(10L, 5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
@@ -166,7 +186,9 @@ class ClassroomControllerTest {
         // Assert
         assertThat(result.getResult()).isTrue();
         assertThat(classroom.getCourse()).isEqualTo(course);
-        verify(classroomMapper).updateEntityFromForm(form, classroom);
+        assertThat(classroom.getPrice()).isEqualTo(BigDecimal.ONE);
+        assertThat(classroom.getStartDate()).isEqualTo(form.getStartDate());
+        assertThat(classroom.getEndDate()).isEqualTo(form.getEndDate());
         verify(classroomRepository).save(classroom);
     }
 
@@ -174,7 +196,7 @@ class ClassroomControllerTest {
     void shouldThrowBadRequestWhenUpdateClassroomStateNotPending() {
         // Arrange
         UpdateClassroomForm form = updateForm(11L, 5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(11L);
         classroom.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
@@ -216,20 +238,14 @@ class ClassroomControllerTest {
         classroom2.setId(2L);
         Page<Classroom> page = new PageImpl<>(Arrays.asList(classroom1, classroom2), pageable, 2);
 
-        ClassroomDto dto1 = new ClassroomDto();
-        dto1.setId(1L);
-        ClassroomDto dto2 = new ClassroomDto();
-        dto2.setId(2L);
-
         when(classroomRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(classroomMapper.fromEntityToClassroomDtoList(anyList())).thenReturn(Arrays.asList(dto1, dto2));
 
         // Act
         ApiMessageDto<ResponseListDto<List<ClassroomDto>>> result = classroomController.list(criteria, pageable);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData().getContent()).hasSize(2);
+        assertThat(result.getData().getContent()).extracting(ClassroomDto::getId).containsExactly(1L, 2L);
         verify(classroomRepository).findAll(any(Specification.class), eq(pageable));
     }
 
@@ -296,20 +312,17 @@ class ClassroomControllerTest {
         ClassroomCriteria criteria = new ClassroomCriteria();
         criteria.setCourseId(5L);
 
+        // startDate/endDate/price are set on the entity, so the null assertions below prove the
+        // auto-complete mapping really leaves them out.
         Classroom classroom = new Classroom();
         classroom.setId(1L);
+        classroom.setStartDate(new Date());
+        classroom.setEndDate(new Date());
+        classroom.setPrice(BigDecimal.TEN);
         Page<Classroom> page = new PageImpl<>(Collections.singletonList(classroom), PageRequest.of(0, 10), 1);
-
-        Course course = new Course();
-        course.setId(5L);
-        ClassroomDto dto = new ClassroomDto();
-        dto.setId(1L);
-        dto.setCourse(new com.ai.api.dto.course.CourseDto());
-        // startDate/endDate/price intentionally left null - reduced-field auto-complete mapping.
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         when(classroomRepository.findAll(any(Specification.class), pageableCaptor.capture())).thenReturn(page);
-        when(classroomMapper.fromEntityToClassroomDtoAutoCompleteList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<ClassroomDto>>> result = classroomController.autoComplete(criteria);
@@ -318,10 +331,10 @@ class ClassroomControllerTest {
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
+        assertThat(result.getData().getContent().get(0).getId()).isEqualTo(1L);
         assertThat(result.getData().getContent().get(0).getStartDate()).isNull();
         assertThat(result.getData().getContent().get(0).getEndDate()).isNull();
         assertThat(result.getData().getContent().get(0).getPrice()).isNull();
-        verify(classroomMapper).fromEntityToClassroomDtoAutoCompleteList(anyList());
     }
 
     // -------------------------------------------------------------- public-list
@@ -339,12 +352,7 @@ class ClassroomControllerTest {
         classroom.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
         Page<Classroom> page = new PageImpl<>(Collections.singletonList(classroom), pageable, 1);
 
-        ClassroomDto dto = new ClassroomDto();
-        dto.setId(1L);
-        dto.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
-
         when(classroomRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(classroomMapper.fromEntityToClassroomDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<ClassroomDto>>> result = classroomController.publicList(criteria, pageable);
@@ -353,6 +361,7 @@ class ClassroomControllerTest {
         assertThat(criteria.getState()).isEqualTo(AIConstant.CLASSROOM_STATE_ACTIVE);
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
+        assertThat(result.getData().getContent().get(0).getState()).isEqualTo(AIConstant.CLASSROOM_STATE_ACTIVE);
         verify(classroomRepository).findAll(any(Specification.class), eq(pageable));
     }
 
@@ -362,7 +371,7 @@ class ClassroomControllerTest {
     void shouldChangeStateForValidTransitionPendingToActive() {
         // Arrange
         ChangeClassroomStateForm form = changeStateForm(10L, AIConstant.CLASSROOM_STATE_ACTIVE);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
@@ -381,7 +390,7 @@ class ClassroomControllerTest {
     void shouldThrowBadRequestWhenChangeStateSkipsAStep() {
         // Arrange - pending(0) -> done(2) is not a permitted transition
         ChangeClassroomStateForm form = changeStateForm(10L, AIConstant.CLASSROOM_STATE_DONE);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_PENDING);
@@ -399,7 +408,7 @@ class ClassroomControllerTest {
     void shouldThrowBadRequestWhenChangeStateIsNoOp() {
         // Arrange - active(1) -> active(1) is not a permitted transition
         ChangeClassroomStateForm form = changeStateForm(10L, AIConstant.CLASSROOM_STATE_ACTIVE);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_ACTIVE);
@@ -416,7 +425,7 @@ class ClassroomControllerTest {
     void shouldThrowBadRequestWhenChangeStateAttemptsOutOfTerminalDone() {
         // Arrange - done(2) is terminal, no transition out is permitted
         ChangeClassroomStateForm form = changeStateForm(10L, AIConstant.CLASSROOM_STATE_CANCEL);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_DONE);
@@ -433,7 +442,7 @@ class ClassroomControllerTest {
     void shouldThrowBadRequestWhenChangeStateAttemptsOutOfTerminalCancel() {
         // Arrange - cancel(3) is terminal, no transition out is permitted
         ChangeClassroomStateForm form = changeStateForm(10L, AIConstant.CLASSROOM_STATE_ACTIVE);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Classroom classroom = new Classroom();
         classroom.setId(10L);
         classroom.setState(AIConstant.CLASSROOM_STATE_CANCEL);

@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,7 +35,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/group")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class GroupController extends ABasicController {
     @Autowired
@@ -48,7 +48,8 @@ public class GroupController extends ABasicController {
 
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
+    @Transactional
+    public ApiMessageDto<GroupDto> create(@Valid @RequestBody CreateGroupForm createGroupForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed create.");
         }
@@ -67,11 +68,12 @@ public class GroupController extends ABasicController {
         group.setStatus(AIConstant.STATUS_ACTIVE);
         group.setPermissions(permissions);
         groupRepository.save(group);
-        return makeSuccessResponse("Create Group success");
+        return makeSuccessResponse(groupMapper.fromEntityToGroupIdDto(group), "Create Group success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_U')")
+    @Transactional
     public ApiMessageDto<Void> update(@Valid @RequestBody UpdateGroupForm updateGroupForm, BindingResult bindingResult) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed update.");
@@ -119,6 +121,7 @@ public class GroupController extends ABasicController {
 
     @DeleteMapping(value = "/delete/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('GR_D')")
+    @Transactional
     public ApiMessageDto<Void> delete(@PathVariable("id") Long id) {
         if (!isSuperAdmin()) {
             throw new UnauthorizationException("Not allowed list group.");

@@ -31,7 +31,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/rating")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class RatingController extends ABasicController {
     @Autowired
@@ -49,7 +48,7 @@ public class RatingController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('RAT_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateRatingForm form, BindingResult bindingResult) {
+    public ApiMessageDto<RatingDto> create(@Valid @RequestBody CreateRatingForm form, BindingResult bindingResult) {
         Course course = courseRepository.findById(form.getCourseId())
                 .orElseThrow(() -> new NotFoundException("[Rating] Course not found", ErrorCode.COURSE_ERROR_NOT_FOUND));
         Student student = studentRepository.findById(form.getStudentId())
@@ -58,7 +57,7 @@ public class RatingController extends ABasicController {
         rating.setCourse(course);
         rating.setStudent(student);
         ratingRepository.save(rating);
-        return makeSuccessResponse("Create rating success");
+        return makeSuccessResponse(ratingMapper.fromEntityToRatingIdDto(rating), "Create rating success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -20,7 +20,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,7 +34,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/tags")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class TagController extends ABasicController {
 
@@ -48,13 +46,13 @@ public class TagController extends ABasicController {
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TAG_C')")
     @Transactional
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateTagForm createTagForm, BindingResult bindingResult) {
+    public ApiMessageDto<TagDto> create(@Valid @RequestBody CreateTagForm createTagForm, BindingResult bindingResult) {
         if (tagRepository.existsByNameIgnoreCase(createTagForm.getName())) {
             throw new BadRequestException("Tag already exist", ErrorCode.TAG_ERROR_IS_EXISTED);
         }
         Tag tag = tagMapper.fromCreateFormToEntity(createTagForm);
         tagRepository.save(tag);
-        return makeSuccessResponse("Create tag success");
+        return makeSuccessResponse(tagMapper.fromEntityToTagIdDto(tag), "Create tag success");
     }
 
     @PutMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)

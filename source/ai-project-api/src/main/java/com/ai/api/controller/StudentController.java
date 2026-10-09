@@ -30,7 +30,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,7 +45,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/student")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class StudentController extends ABasicController {
     @Autowired
@@ -69,7 +67,7 @@ public class StudentController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('STU_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateStudentForm form, BindingResult bindingResult) {
+    public ApiMessageDto<StudentDto> create(@Valid @RequestBody CreateStudentForm form, BindingResult bindingResult) {
         Group group = groupRepository.findById(form.getGroupId())
                 .orElseThrow(() -> new BadRequestException("[Group] Group not found", ErrorCode.GROUP_ERROR_NOT_FOUND));
 
@@ -99,7 +97,7 @@ public class StudentController extends ABasicController {
         student.setAccount(account);
         studentRepository.save(student);
 
-        return makeSuccessResponse("Create student success");
+        return makeSuccessResponse(studentMapper.fromEntityToStudentIdDto(student), "Create student success");
     }
 
     @Transactional

@@ -16,14 +16,18 @@ import com.ai.api.repository.CategoryRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Arrays;
@@ -49,8 +53,8 @@ class CategoryControllerTest {
     @Mock
     private CategoryRepository categoryRepository;
 
-    @Mock
-    private CategoryMapper categoryMapper;
+    @Spy
+    private CategoryMapper categoryMapper = Mappers.getMapper(CategoryMapper.class);
 
     @Mock
     private FileService fileService;
@@ -63,8 +67,8 @@ class CategoryControllerTest {
     @Test
     void shouldThrowBadRequestWhenCreateRootNameAlreadyExistsAmongRoots() {
         // Arrange (FR-002, scoped: root category name checked among roots only)
-        BindingResult bindingResult = mock(BindingResult.class);
         CreateCategoryForm form = new CreateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Category One");
 
         when(categoryRepository.existsByNameAndParentIsNull(anyString())).thenReturn(true);
@@ -79,8 +83,8 @@ class CategoryControllerTest {
     @Test
     void shouldThrowBadRequestWhenCreateChildNameAlreadyExistsWithinSameParent() {
         // Arrange (FR-002, scoped: child category name checked among siblings under the same parent)
-        BindingResult bindingResult = mock(BindingResult.class);
         CreateCategoryForm form = new CreateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Child One");
         form.setParentId(5L);
 
@@ -96,8 +100,8 @@ class CategoryControllerTest {
     @Test
     void shouldThrowNotFoundWhenCreateParentIdUnknown() {
         // Arrange (FR-005)
-        BindingResult bindingResult = mock(BindingResult.class);
         CreateCategoryForm form = new CreateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Category One");
         form.setParentId(99L);
 
@@ -113,8 +117,8 @@ class CategoryControllerTest {
     @Test
     void shouldThrowBadRequestWhenCreateParentIsNotRoot() {
         // Arrange (FR-017: max 2-level hierarchy — a child category cannot become a parent)
-        BindingResult bindingResult = mock(BindingResult.class);
         CreateCategoryForm form = new CreateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Grandchild");
         form.setParentId(5L);
 
@@ -136,13 +140,72 @@ class CategoryControllerTest {
         verify(categoryRepository, never()).save(any());
     }
 
+    @Test
+    void shouldCreateRootCategoryAndReturnId() {
+        // Arrange
+        CreateCategoryForm form = new CreateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
+        form.setName("Category One");
+        form.setDescription("Category description");
+
+        when(categoryRepository.existsByNameAndParentIsNull("Category One")).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> {
+            Category saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        // Act
+        ApiMessageDto<CategoryDto> result = categoryController.create(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getMessage()).isEqualTo("Create category success");
+        ArgumentCaptor<Category> categoryCaptor = ArgumentCaptor.forClass(Category.class);
+        verify(categoryRepository).save(categoryCaptor.capture());
+        assertThat(categoryCaptor.getValue().getName()).isEqualTo("Category One");
+        assertThat(categoryCaptor.getValue().getDescription()).isEqualTo("Category description");
+        assertThat(categoryCaptor.getValue().getParent()).isNull();
+    }
+
+    @Test
+    void shouldCreateChildCategoryUnderRootParentAndReturnId() {
+        // Arrange
+        CreateCategoryForm form = new CreateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
+        form.setName("Child One");
+        form.setParentId(5L);
+        Category root = new Category();
+        root.setId(5L);
+
+        when(categoryRepository.existsByNameAndParentId("Child One", 5L)).thenReturn(false);
+        when(categoryRepository.findById(5L)).thenReturn(Optional.of(root));
+        when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> {
+            Category saved = invocation.getArgument(0);
+            saved.setId(6L);
+            return saved;
+        });
+
+        // Act
+        ApiMessageDto<CategoryDto> result = categoryController.create(form, bindingResult);
+
+        // Assert
+        assertThat(result.getResult()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(6L);
+        ArgumentCaptor<Category> categoryCaptor = ArgumentCaptor.forClass(Category.class);
+        verify(categoryRepository).save(categoryCaptor.capture());
+        assertThat(categoryCaptor.getValue().getName()).isEqualTo("Child One");
+        assertThat(categoryCaptor.getValue().getParent()).isSameAs(root);
+    }
+
     // ------------------------------------------------------------------ update
 
     @Test
     void shouldThrowNotFoundWhenUpdateIdMissing() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCategoryForm form = new UpdateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Category One");
 
@@ -156,8 +219,8 @@ class CategoryControllerTest {
     @Test
     void shouldThrowBadRequestWhenUpdateRootNameExistsAmongRootsExcludingSelf() {
         // Arrange (FR-003, scoped: root category name checked among roots only)
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCategoryForm form = new UpdateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Category Two");
 
@@ -178,8 +241,8 @@ class CategoryControllerTest {
     @Test
     void shouldThrowBadRequestWhenUpdateChildNameExistsWithinSameParentExcludingSelf() {
         // Arrange (FR-003, scoped: child category name checked among siblings under the same parent)
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCategoryForm form = new UpdateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(2L);
         form.setName("Sibling Two");
 
@@ -205,8 +268,8 @@ class CategoryControllerTest {
     @Test
     void shouldNotCheckNameExistsWhenNameUnchangedOnUpdate() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCategoryForm form = new UpdateCategoryForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Category One");
 
@@ -242,12 +305,7 @@ class CategoryControllerTest {
         category.setName("Books");
         Page<Category> page = new PageImpl<>(Collections.singletonList(category), pageable, 1);
 
-        CategoryDto dto = new CategoryDto();
-        dto.setId(1L);
-        dto.setName("Books");
-
         when(categoryRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(categoryMapper.fromEntityToCategoryDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<CategoryDto>>> result = categoryController.list(criteria, pageable);
@@ -255,6 +313,7 @@ class CategoryControllerTest {
         // Assert
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
+        assertThat(result.getData().getContent().get(0).getId()).isEqualTo(1L);
         assertThat(result.getData().getContent().get(0).getName()).isEqualTo("Books");
         verify(categoryRepository).findAll(any(Specification.class), eq(pageable));
     }
@@ -274,13 +333,7 @@ class CategoryControllerTest {
         category.setKind(1);
         Page<Category> page = new PageImpl<>(Collections.singletonList(category), pageable, 1);
 
-        CategoryDto dto = new CategoryDto();
-        dto.setId(1L);
-        dto.setName("Books");
-        dto.setKind(1);
-
         when(categoryRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(categoryMapper.fromEntityToCategoryDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<CategoryDto>>> result = categoryController.list(criteria, pageable);
@@ -311,19 +364,15 @@ class CategoryControllerTest {
         category.setId(1L);
         category.setName("Category One");
 
-        CategoryDto dto = new CategoryDto();
-        dto.setId(1L);
-        dto.setName("Category One");
-
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
-        when(categoryMapper.fromEntityToCategoryDto(category)).thenReturn(dto);
 
         // Act
         ApiMessageDto<CategoryDto> result = categoryController.get(1L);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData()).isEqualTo(dto);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getName()).isEqualTo("Category One");
     }
 
     // ------------------------------------------------------------------ delete
@@ -417,31 +466,9 @@ class CategoryControllerTest {
         childC.setParent(parentA);
         childC.setOrdering(1);
 
-        CategoryTreeDto dtoA = new CategoryTreeDto();
-        dtoA.setId(1L);
-        dtoA.setName("Parent A");
-
-        CategoryTreeDto dtoD = new CategoryTreeDto();
-        dtoD.setId(4L);
-        dtoD.setName("Parent D");
-
-        CategoryDto dtoB = new CategoryDto();
-        dtoB.setId(2L);
-        dtoB.setName("Child B");
-
-        CategoryDto dtoC = new CategoryDto();
-        dtoC.setId(3L);
-        dtoC.setName("Child C");
-
         when(categoryRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(parentsPage);
         when(categoryRepository.findByParentIdIn(Arrays.asList(1L, 4L)))
                 .thenReturn(Arrays.asList(childB, childC));
-        when(categoryMapper.fromEntityToCategoryTreeDtoList(Arrays.asList(parentA, parentD)))
-                .thenReturn(Arrays.asList(dtoA, dtoD));
-        when(categoryMapper.fromEntityToCategoryDtoList(eq(Arrays.asList(childB, childC))))
-                .thenReturn(Arrays.asList(dtoB, dtoC));
-        when(categoryMapper.fromEntityToCategoryDtoList(eq(Collections.emptyList())))
-                .thenReturn(Collections.emptyList());
 
         // Act
         ApiMessageDto<ResponseListDto<List<CategoryTreeDto>>> result = categoryController.publicList(criteria, pageable);

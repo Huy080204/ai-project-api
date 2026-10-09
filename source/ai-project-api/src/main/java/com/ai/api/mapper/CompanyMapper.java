@@ -49,4 +49,9 @@ public interface CompanyMapper {
     @IterableMapping(elementTargetType = CompanyDto.class, qualifiedByName = "fromEntityToCompanyDtoPublic")
     @Named("fromEntityToCompanyDtoPublicList")
     List<CompanyDto> fromEntityToCompanyDtoPublicList(List<Company> companies);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToCompanyIdDto")
+    CompanyDto fromEntityToCompanyIdDto(Company company);
 }

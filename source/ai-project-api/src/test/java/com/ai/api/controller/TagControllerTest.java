@@ -13,15 +13,20 @@ import com.ai.api.repository.TagRepository;
 import com.ai.api.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,29 +34,38 @@ import static org.mockito.Mockito.when;
 class TagControllerTest {
 
     @Mock private TagRepository tagRepository;
-    @Mock private TagMapper tagMapper;
+    @Spy private TagMapper tagMapper = Mappers.getMapper(TagMapper.class);
     @Mock private UserServiceImpl userService;
-    @Mock private BindingResult bindingResult;
     @InjectMocks private TagController tagController;
 
     @Test
     void create_whenNameNotExisted_returnsSuccessResponse() {
         CreateTagForm form = new CreateTagForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Java");
-        Tag tag = new Tag();
+        form.setColorCode("#FFFFFF");
         when(tagRepository.existsByNameIgnoreCase("Java")).thenReturn(false);
-        when(tagMapper.fromCreateFormToEntity(form)).thenReturn(tag);
+        when(tagRepository.save(any(Tag.class))).thenAnswer(invocation -> {
+            Tag saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
 
-        ApiMessageDto<Void> result = tagController.create(form, bindingResult);
+        ApiMessageDto<TagDto> result = tagController.create(form, bindingResult);
 
         assertThat(result.getResult()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(1L);
         assertThat(result.getMessage()).isEqualTo("Create tag success");
-        verify(tagRepository).save(tag);
+        ArgumentCaptor<Tag> tagCaptor = ArgumentCaptor.forClass(Tag.class);
+        verify(tagRepository).save(tagCaptor.capture());
+        assertThat(tagCaptor.getValue().getName()).isEqualTo("Java");
+        assertThat(tagCaptor.getValue().getColorCode()).isEqualTo("#FFFFFF");
     }
 
     @Test
     void create_whenNameExisted_throwsBadRequestException() {
         CreateTagForm form = new CreateTagForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Java");
         when(tagRepository.existsByNameIgnoreCase("Java")).thenReturn(true);
 
@@ -63,8 +77,10 @@ class TagControllerTest {
     @Test
     void update_whenNameNotChangedAndFound_returnsSuccessResponse() {
         UpdateTagForm form = new UpdateTagForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Java");
+        form.setColorCode("#000000");
         Tag tag = new Tag();
         tag.setName("Java");
         when(tagRepository.findById(1L)).thenReturn(Optional.of(tag));
@@ -73,12 +89,14 @@ class TagControllerTest {
 
         assertThat(result.getResult()).isTrue();
         assertThat(result.getMessage()).isEqualTo("Update tag success");
+        assertThat(tag.getColorCode()).isEqualTo("#000000");
         verify(tagRepository).save(tag);
     }
 
     @Test
     void update_whenNameChangedToExistingName_throwsBadRequestException() {
         UpdateTagForm form = new UpdateTagForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Python");
         Tag tag = new Tag();
@@ -94,6 +112,7 @@ class TagControllerTest {
     @Test
     void update_whenNotFound_throwsNotFoundException() {
         UpdateTagForm form = new UpdateTagForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Java");
         when(tagRepository.findById(1L)).thenReturn(Optional.empty());
@@ -136,14 +155,17 @@ class TagControllerTest {
     @Test
     void get_whenFound_returnsSuccessDto() {
         Tag tag = new Tag();
-        TagDto dto = new TagDto();
+        tag.setId(1L);
+        tag.setName("Java");
+        tag.setColorCode("#FFFFFF");
         when(tagRepository.findById(1L)).thenReturn(Optional.of(tag));
-        when(tagMapper.fromEntityToTagDto(tag)).thenReturn(dto);
 
         ApiMessageDto<TagDto> result = tagController.get(1L);
 
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData()).isSameAs(dto);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getName()).isEqualTo("Java");
+        assertThat(result.getData().getColorCode()).isEqualTo("#FFFFFF");
         assertThat(result.getMessage()).isEqualTo("Get tag success");
     }
 }

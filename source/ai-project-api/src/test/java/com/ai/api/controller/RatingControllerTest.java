@@ -7,7 +7,9 @@ import com.ai.api.dto.rating.RatingDto;
 import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.rating.CreateRatingForm;
 import com.ai.api.form.rating.UpdateRatingForm;
+import com.ai.api.mapper.CourseMapper;
 import com.ai.api.mapper.RatingMapper;
+import com.ai.api.mapper.StudentMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Rating;
 import com.ai.api.model.Student;
@@ -15,16 +17,22 @@ import com.ai.api.model.criteria.RatingCriteria;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.RatingRepository;
 import com.ai.api.repository.StudentRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Collections;
@@ -34,9 +42,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,11 +62,19 @@ class RatingControllerTest {
     @Mock
     private StudentRepository studentRepository;
 
-    @Mock
-    private RatingMapper ratingMapper;
+    @Spy
+    private RatingMapper ratingMapper = Mappers.getMapper(RatingMapper.class);
 
     @InjectMocks
     private RatingController ratingController;
+
+    @BeforeEach
+    void setUp() {
+        // RatingMapper delegates course/student to their own Mappers (`uses = {...}`); the
+        // generated impl @Autowired-injects them, which Mappers.getMapper(...) does not do.
+        ReflectionTestUtils.setField(ratingMapper, "courseMapper", Mappers.getMapper(CourseMapper.class));
+        ReflectionTestUtils.setField(ratingMapper, "studentMapper", Mappers.getMapper(StudentMapper.class));
+    }
 
     private CreateRatingForm createForm() {
         CreateRatingForm form = new CreateRatingForm();
@@ -85,7 +99,7 @@ class RatingControllerTest {
     void shouldThrowNotFoundWhenCreateCourseMissing() {
         // Arrange
         CreateRatingForm form = createForm();
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(courseRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -98,7 +112,7 @@ class RatingControllerTest {
     void shouldThrowNotFoundWhenCreateStudentMissing() {
         // Arrange
         CreateRatingForm form = createForm();
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = new Course();
         course.setId(1L);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
@@ -114,25 +128,33 @@ class RatingControllerTest {
     void shouldCreateRatingSuccessfully() {
         // Arrange
         CreateRatingForm form = createForm();
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = new Course();
         course.setId(1L);
         Student student = new Student();
         student.setId(2L);
-        Rating rating = new Rating();
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
         when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
-        when(ratingMapper.fromFormToEntity(form)).thenReturn(rating);
+        when(ratingRepository.save(any(Rating.class))).thenAnswer(invocation -> {
+            Rating saved = invocation.getArgument(0);
+            saved.setId(3L);
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = ratingController.create(form, bindingResult);
+        ApiMessageDto<RatingDto> result = ratingController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(rating.getCourse()).isEqualTo(course);
-        assertThat(rating.getStudent()).isEqualTo(student);
-        verify(ratingRepository).save(rating);
+        assertThat(result.getData().getId()).isEqualTo(3L);
+        ArgumentCaptor<Rating> ratingCaptor = ArgumentCaptor.forClass(Rating.class);
+        verify(ratingRepository).save(ratingCaptor.capture());
+        Rating saved = ratingCaptor.getValue();
+        assertThat(saved.getMessage()).isEqualTo("Great course");
+        assertThat(saved.getStar()).isEqualTo(5);
+        assertThat(saved.getCourse()).isSameAs(course);
+        assertThat(saved.getStudent()).isSameAs(student);
     }
 
     // ------------------------------------------------------------------ update
@@ -141,7 +163,7 @@ class RatingControllerTest {
     void shouldThrowNotFoundWhenUpdateIdMissing() {
         // Arrange
         UpdateRatingForm form = updateForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(ratingRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -154,7 +176,7 @@ class RatingControllerTest {
     void shouldUpdateRatingSuccessfully() {
         // Arrange
         UpdateRatingForm form = updateForm(1L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Rating rating = new Rating();
         rating.setId(1L);
         when(ratingRepository.findById(1L)).thenReturn(Optional.of(rating));
@@ -164,7 +186,8 @@ class RatingControllerTest {
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(ratingMapper).updateEntityFromForm(form, rating);
+        assertThat(rating.getMessage()).isEqualTo("Updated message");
+        assertThat(rating.getStar()).isEqualTo(4);
         verify(ratingRepository).save(rating);
     }
 
@@ -185,19 +208,19 @@ class RatingControllerTest {
         // Arrange
         Rating rating = new Rating();
         rating.setId(1L);
-
-        RatingDto dto = new RatingDto();
-        dto.setId(1L);
+        rating.setMessage("Great course");
+        rating.setStar(5);
 
         when(ratingRepository.findById(1L)).thenReturn(Optional.of(rating));
-        when(ratingMapper.fromEntityToRatingDto(rating)).thenReturn(dto);
 
         // Act
         ApiMessageDto<RatingDto> result = ratingController.get(1L);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData()).isEqualTo(dto);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getMessage()).isEqualTo("Great course");
+        assertThat(result.getData().getStar()).isEqualTo(5);
     }
 
     // ------------------------------------------------------------------ delete
@@ -240,13 +263,10 @@ class RatingControllerTest {
 
         Rating rating = new Rating();
         rating.setId(1L);
+        rating.setMessage("Great course");
         Page<Rating> page = new PageImpl<>(Collections.singletonList(rating), pageable, 1);
 
-        RatingDto dto = new RatingDto();
-        dto.setId(1L);
-
         when(ratingRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(ratingMapper.fromEntityToRatingDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<RatingDto>>> result = ratingController.list(criteria, pageable);
@@ -255,6 +275,7 @@ class RatingControllerTest {
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
         assertThat(result.getData().getContent().get(0).getId()).isEqualTo(1L);
+        assertThat(result.getData().getContent().get(0).getMessage()).isEqualTo("Great course");
         verify(ratingRepository).findAll(any(Specification.class), eq(pageable));
     }
 
@@ -270,13 +291,10 @@ class RatingControllerTest {
 
         Rating rating = new Rating();
         rating.setId(1L);
+        rating.setMessage("Great course");
         Page<Rating> page = new PageImpl<>(Collections.singletonList(rating), pageable, 1);
 
-        RatingDto dto = new RatingDto();
-        dto.setId(1L);
-
         when(ratingRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(ratingMapper.fromEntityToRatingDtoPublicList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<RatingDto>>> result = ratingController.publicList(criteria, pageable);
@@ -285,6 +303,6 @@ class RatingControllerTest {
         assertThat(criteria.getStatus()).isEqualTo(AIConstant.STATUS_ACTIVE);
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
-        verify(ratingMapper).fromEntityToRatingDtoPublicList(anyList());
+        assertThat(result.getData().getContent().get(0).getMessage()).isEqualTo("Great course");
     }
 }

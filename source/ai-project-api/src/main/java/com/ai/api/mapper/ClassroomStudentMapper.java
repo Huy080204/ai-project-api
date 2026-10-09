@@ -37,4 +37,9 @@ public interface ClassroomStudentMapper {
     @IterableMapping(elementTargetType = ClassroomStudentDto.class, qualifiedByName = "fromEntityToClassroomStudentDto")
     @Named("fromEntityToClassroomStudentDtoList")
     List<ClassroomStudentDto> fromEntityToClassroomStudentDtoList(List<ClassroomStudent> classroomStudents);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToClassroomStudentIdDto")
+    ClassroomStudentDto fromEntityToClassroomStudentIdDto(ClassroomStudent classroomStudent);
 }

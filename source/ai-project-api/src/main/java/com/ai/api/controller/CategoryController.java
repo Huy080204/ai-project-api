@@ -24,7 +24,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,7 +44,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/category")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class CategoryController extends ABasicController {
     @Autowired
@@ -60,7 +58,7 @@ public class CategoryController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('CAT_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateCategoryForm createCategoryForm, BindingResult bindingResult) {
+    public ApiMessageDto<CategoryDto> create(@Valid @RequestBody CreateCategoryForm createCategoryForm, BindingResult bindingResult) {
         Long parentId = createCategoryForm.getParentId();
         boolean nameExists = parentId == null
                 ? categoryRepository.existsByNameAndParentIsNull(createCategoryForm.getName())
@@ -78,7 +76,7 @@ public class CategoryController extends ABasicController {
             category.setParent(parent);
         }
         categoryRepository.save(category);
-        return makeSuccessResponse("Create category success");
+        return makeSuccessResponse(categoryMapper.fromEntityToCategoryIdDto(category), "Create category success");
     }
 
     @Transactional

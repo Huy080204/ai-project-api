@@ -29,7 +29,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,7 +45,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/v1/course")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class CourseController extends ABasicController {
     @Autowired
@@ -76,13 +74,13 @@ public class CourseController extends ABasicController {
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('COU_C')")
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateCourseForm createCourseForm, BindingResult bindingResult) {
+    public ApiMessageDto<CourseDto> create(@Valid @RequestBody CreateCourseForm createCourseForm, BindingResult bindingResult) {
         if (courseRepository.existsByName(createCourseForm.getName())) {
             throw new BadRequestException("Course name already exist", ErrorCode.COURSE_ERROR_NAME_EXIST);
         }
         Course course = courseMapper.fromCreateCourseFormToEntity(createCourseForm);
         courseRepository.save(course);
-        return makeSuccessResponse("Create course success");
+        return makeSuccessResponse(courseMapper.fromEntityToCourseIdDto(course), "Create course success");
     }
 
     @Transactional

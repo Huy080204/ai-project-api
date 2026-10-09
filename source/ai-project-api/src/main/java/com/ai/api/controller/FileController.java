@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/v1/file")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class FileController {
     @Autowired

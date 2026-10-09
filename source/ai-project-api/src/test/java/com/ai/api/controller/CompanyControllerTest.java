@@ -12,9 +12,13 @@ import com.ai.api.repository.CompanyRepository;
 import com.ai.api.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Optional;
@@ -35,8 +39,8 @@ class CompanyControllerTest {
     @Mock
     private CompanyRepository companyRepository;
 
-    @Mock
-    private CompanyMapper companyMapper;
+    @Spy
+    private CompanyMapper companyMapper = Mappers.getMapper(CompanyMapper.class);
 
     @Mock
     private FileService fileService;
@@ -49,8 +53,8 @@ class CompanyControllerTest {
     @Test
     void shouldThrowBadRequestWhenCreateNameAlreadyExists() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         CreateCompanyForm form = new CreateCompanyForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Company One");
         form.setAvatar("/avatar/new.png");
 
@@ -65,24 +69,28 @@ class CompanyControllerTest {
     @Test
     void shouldCreateCompanySuccessfully() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         CreateCompanyForm form = new CreateCompanyForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setName("Company One");
         form.setAvatar("/avatar/new.png");
 
-        Company company = new Company();
-        company.setName("Company One");
-        company.setAvatar("/avatar/new.png");
-
         when(companyRepository.existsByName(anyString())).thenReturn(false);
-        when(companyMapper.fromFormToEntity(form)).thenReturn(company);
+        when(companyRepository.save(any(Company.class))).thenAnswer(invocation -> {
+            Company saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = companyController.create(form, bindingResult);
+        ApiMessageDto<CompanyDto> result = companyController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(companyRepository).save(company);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        ArgumentCaptor<Company> companyCaptor = ArgumentCaptor.forClass(Company.class);
+        verify(companyRepository).save(companyCaptor.capture());
+        assertThat(companyCaptor.getValue().getName()).isEqualTo("Company One");
+        assertThat(companyCaptor.getValue().getAvatar()).isEqualTo("/avatar/new.png");
     }
 
     // ------------------------------------------------------------------ update
@@ -90,8 +98,8 @@ class CompanyControllerTest {
     @Test
     void shouldThrowNotFoundWhenUpdateIdMissing() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCompanyForm form = new UpdateCompanyForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Company One");
         form.setAvatar("/avatar/new.png");
@@ -106,8 +114,8 @@ class CompanyControllerTest {
     @Test
     void shouldThrowBadRequestWhenUpdateNameExistsOnAnotherCompany() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCompanyForm form = new UpdateCompanyForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Company Two");
         form.setAvatar("/avatar/same.png");
@@ -128,8 +136,8 @@ class CompanyControllerTest {
     @Test
     void shouldDeleteOldAvatarWhenUpdateAvatarChanges() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCompanyForm form = new UpdateCompanyForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Company One");
         form.setAvatar("/new.png");
@@ -146,13 +154,14 @@ class CompanyControllerTest {
 
         // Assert
         verify(fileService).deleteFile("/old.png");
+        assertThat(company.getAvatar()).isEqualTo("/new.png");
     }
 
     @Test
     void shouldNotDeleteOldAvatarWhenUpdateAvatarUnchanged() {
         // Arrange
-        BindingResult bindingResult = mock(BindingResult.class);
         UpdateCompanyForm form = new UpdateCompanyForm();
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         form.setId(1L);
         form.setName("Company One");
         form.setAvatar("/same.png");
@@ -192,20 +201,16 @@ class CompanyControllerTest {
         company.setName("Company One");
         company.setAvatar("/avatar/one.png");
 
-        CompanyDto dto = new CompanyDto();
-        dto.setId(1L);
-        dto.setName("Company One");
-        dto.setAvatar("/avatar/one.png");
-
         when(companyRepository.findById(1L)).thenReturn(Optional.of(company));
-        when(companyMapper.fromEntityToCompanyDto(company)).thenReturn(dto);
 
         // Act
         ApiMessageDto<CompanyDto> result = companyController.get(1L);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(result.getData()).isEqualTo(dto);
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getName()).isEqualTo("Company One");
+        assertThat(result.getData().getAvatar()).isEqualTo("/avatar/one.png");
     }
 
     // ------------------------------------------------------------------ delete

@@ -30,7 +30,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,7 +43,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/registration")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Slf4j
 public class RegistrationController extends ABasicController {
     @Autowired
@@ -73,7 +71,7 @@ public class RegistrationController extends ABasicController {
 
     @Transactional
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiMessageDto<Void> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
+    public ApiMessageDto<RegistrationDto> create(@Valid @RequestBody CreateRegistrationForm createRegistrationForm, BindingResult bindingResult) {
         Classroom classroom = classroomRepository.findById(createRegistrationForm.getClassroomId())
                 .orElseThrow(() -> new NotFoundException("Classroom not found", ErrorCode.CLASSROOM_ERROR_NOT_FOUND));
         if (!AIConstant.CLASSROOM_STATE_PENDING.equals(classroom.getState()) && !AIConstant.CLASSROOM_STATE_ACTIVE.equals(classroom.getState())) {
@@ -98,7 +96,7 @@ public class RegistrationController extends ABasicController {
         Registration registration = registrationMapper.fromCreateRegistrationFormToEntity(createRegistrationForm);
         registration.setClassroom(classroom);
         registrationRepository.save(registration);
-        return makeSuccessResponse("Create registration success");
+        return makeSuccessResponse(registrationMapper.fromEntityToRegistrationIdDto(registration), "Create registration success");
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -59,4 +59,9 @@ public interface StudentMapper {
     @Mapping(source = "address", target = "address")
     @BeanMapping(ignoreByDefault = true)
     void updateEntityFromForm(UpdateStudentForm form, @MappingTarget Student student);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToStudentIdDto")
+    StudentDto fromEntityToStudentIdDto(Student student);
 }

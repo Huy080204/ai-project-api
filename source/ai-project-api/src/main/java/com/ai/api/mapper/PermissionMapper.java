@@ -34,4 +34,9 @@ public interface PermissionMapper {
     @IterableMapping(elementTargetType = PermissionDto.class, qualifiedByName = "fromEntityToPermissionDto")
     @Named("fromEntityToPermissionDtoList")
     List<PermissionDto> fromEntityToPermissionDtoList(List<Permission> permissions);
+
+    @Mapping(source = "id", target = "id")
+    @BeanMapping(ignoreByDefault = true)
+    @Named("fromEntityToPermissionIdDto")
+    PermissionDto fromEntityToPermissionIdDto(Permission permission);
 }

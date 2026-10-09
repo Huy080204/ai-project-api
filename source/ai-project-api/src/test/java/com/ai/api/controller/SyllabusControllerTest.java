@@ -10,6 +10,7 @@ import com.ai.api.exception.NotFoundException;
 import com.ai.api.form.syllabus.CreateSyllabusForm;
 import com.ai.api.form.syllabus.UpdateSyllabusForm;
 import com.ai.api.form.syllabus.UpdateSyllabusOrderingForm;
+import com.ai.api.mapper.CourseMapper;
 import com.ai.api.mapper.SyllabusMapper;
 import com.ai.api.model.Course;
 import com.ai.api.model.Syllabus;
@@ -17,17 +18,22 @@ import com.ai.api.model.criteria.SyllabusCriteria;
 import com.ai.api.repository.CourseRepository;
 import com.ai.api.repository.SyllabusRepository;
 import com.ai.api.service.FileService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
 import java.util.Arrays;
@@ -38,9 +44,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -63,14 +67,21 @@ class SyllabusControllerTest {
     @Mock
     private CourseRepository courseRepository;
 
-    @Mock
-    private SyllabusMapper syllabusMapper;
+    @Spy
+    private SyllabusMapper syllabusMapper = Mappers.getMapper(SyllabusMapper.class);
 
     @Mock
     private FileService fileService;
 
     @InjectMocks
     private SyllabusController syllabusController;
+
+    @BeforeEach
+    void setUp() {
+        // SyllabusMapper delegates course to CourseMapper (`uses = {...}`); the generated impl
+        // @Autowired-injects it, which Mappers.getMapper(...) does not do.
+        ReflectionTestUtils.setField(syllabusMapper, "courseMapper", Mappers.getMapper(CourseMapper.class));
+    }
 
     private CreateSyllabusForm createForm(Long courseId, Integer kind, Integer timeline) {
         CreateSyllabusForm form = new CreateSyllabusForm();
@@ -126,7 +137,7 @@ class SyllabusControllerTest {
     void shouldThrowNotFoundWhenCreateSyllabusWithInvalidCourseId() {
         // Arrange
         CreateSyllabusForm form = createForm(99L, AIConstant.SYLLABUS_KIND_LESSON, null);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(courseRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -142,22 +153,30 @@ class SyllabusControllerTest {
         // entity itself defaults `timeline` to 0 (field initializer) - the Controller no longer
         // has any CHAPTER-specific branch at all.
         CreateSyllabusForm form = createForm(1L, AIConstant.SYLLABUS_KIND_CHAPTER, null);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
-        Syllabus syllabus = new Syllabus();
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
+        when(syllabusRepository.save(any(Syllabus.class))).thenAnswer(invocation -> {
+            Syllabus saved = invocation.getArgument(0);
+            saved.setId(31L);
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
+        ApiMessageDto<SyllabusDto> result = syllabusController.create(form, bindingResult);
 
         // Assert - a Chapter create never triggers a course-total recompute (Lesson rows,
         // never Chapter rows, are what the recompute sums over).
         assertThat(result.getResult()).isTrue();
-        assertThat(syllabus.getTimeline()).isEqualTo(0);
-        assertThat(syllabus.getCourse()).isEqualTo(course);
-        verify(syllabusRepository).save(syllabus);
+        assertThat(result.getData().getId()).isEqualTo(31L);
+        ArgumentCaptor<Syllabus> syllabusCaptor = ArgumentCaptor.forClass(Syllabus.class);
+        verify(syllabusRepository).save(syllabusCaptor.capture());
+        Syllabus saved = syllabusCaptor.getValue();
+        assertThat(saved.getName()).isEqualTo("Intro");
+        assertThat(saved.getKind()).isEqualTo(AIConstant.SYLLABUS_KIND_CHAPTER);
+        assertThat(saved.getTimeline()).isEqualTo(0);
+        assertThat(saved.getCourse()).isSameAs(course);
         verify(courseRepository, never()).save(any());
     }
 
@@ -167,28 +186,37 @@ class SyllabusControllerTest {
         // ordering chapter of its course; that chapter's timeline is adjusted by the lesson's
         // timeline (delta add - the chapter row itself is mutated directly, no FK to persist).
         CreateSyllabusForm form = createForm(1L, AIConstant.SYLLABUS_KIND_LESSON, 45);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus chapter = chapterSyllabus(5L, course, 0);
-        Syllabus syllabus = new Syllabus();
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
         when(syllabusRepository.findTopByCourseIdAndKindOrderByOrderingDesc(1L, AIConstant.SYLLABUS_KIND_CHAPTER))
                 .thenReturn(Optional.of(chapter));
+        // The chapter row is saved first, then the new lesson: only the lesson gets the new id.
+        when(syllabusRepository.save(any(Syllabus.class))).thenAnswer(invocation -> {
+            Syllabus saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(32L);
+            }
+            return saved;
+        });
 
         // Act
-        ApiMessageDto<Void> result = syllabusController.create(form, bindingResult);
+        ApiMessageDto<SyllabusDto> result = syllabusController.create(form, bindingResult);
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        assertThat(syllabus.getTimeline()).isEqualTo(45);
+        assertThat(result.getData().getId()).isEqualTo(32L);
         assertThat(chapter.getTimeline()).isEqualTo(45);
         // Entity equals()/hashCode() (inherited from the ReuseId base) only compares a
         // never-set `reusedId` field, so every entity instance is "equal" to every other -
-        // verify by call count and rely on the direct state assertions above instead of
-        // verify(mock).save(specificInstance), which Mockito cannot disambiguate here.
-        verify(syllabusRepository, times(2)).save(any());
+        // capture both saves and tell them apart by state instead of verify(mock).save(instance).
+        ArgumentCaptor<Syllabus> syllabusCaptor = ArgumentCaptor.forClass(Syllabus.class);
+        verify(syllabusRepository, times(2)).save(syllabusCaptor.capture());
+        Syllabus savedLesson = syllabusCaptor.getAllValues().get(1);
+        assertThat(savedLesson.getKind()).isEqualTo(AIConstant.SYLLABUS_KIND_LESSON);
+        assertThat(savedLesson.getTimeline()).isEqualTo(45);
         verify(courseRepository).updateTotalTimelineByDelta(1L, 45);
     }
 
@@ -198,11 +226,9 @@ class SyllabusControllerTest {
         // getCode() MUST be null for this one case, consistent with the file's established
         // pattern for business-rule validation checks.
         CreateSyllabusForm form = createForm(1L, AIConstant.SYLLABUS_KIND_LESSON, null);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
-        Syllabus syllabus = new Syllabus();
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
 
         // Act + Assert
         assertThatThrownBy(() -> syllabusController.create(form, bindingResult))
@@ -216,11 +242,9 @@ class SyllabusControllerTest {
     void shouldThrowBadRequestWhenCreateLessonSyllabusWithNoChapterInCourse() {
         // Arrange
         CreateSyllabusForm form = createForm(1L, AIConstant.SYLLABUS_KIND_LESSON, 30);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
-        Syllabus syllabus = new Syllabus();
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(syllabusMapper.fromCreateSyllabusFormToEntity(form)).thenReturn(syllabus);
         when(syllabusRepository.findTopByCourseIdAndKindOrderByOrderingDesc(1L, AIConstant.SYLLABUS_KIND_CHAPTER))
                 .thenReturn(Optional.empty());
 
@@ -239,7 +263,7 @@ class SyllabusControllerTest {
         // Arrange - lesson update requires a valid chapterId; the referenced chapter's timeline
         // is adjusted by the delta between the old and new lesson timeline.
         UpdateSyllabusForm form = updateForm(1L, "avatar.png", 30, 5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus chapter = chapterSyllabus(5L, course, 20);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
@@ -253,7 +277,8 @@ class SyllabusControllerTest {
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(syllabusMapper).updateEntityFromForm(form, syllabus);
+        assertThat(syllabus.getName()).isEqualTo("Intro updated");
+        assertThat(syllabus.getDescription()).isEqualTo("description updated");
         assertThat(chapter.getTimeline()).isEqualTo(30);
         // See the note in the create-lesson test above: entity equals() is unusable for
         // per-instance verify(), so assert by count + captured state instead.
@@ -266,7 +291,7 @@ class SyllabusControllerTest {
         // Arrange - a Chapter update (name/description only, timeline untouched) never
         // triggers a course-total recompute; only Lesson-side operations do.
         UpdateSyllabusForm form = updateForm(1L, "avatar.png", null, null);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus syllabus = chapterSyllabus(1L, course, 40);
         syllabus.setAvatar("avatar.png");
@@ -278,7 +303,8 @@ class SyllabusControllerTest {
 
         // Assert
         assertThat(result.getResult()).isTrue();
-        verify(syllabusMapper).updateEntityFromForm(form, syllabus);
+        assertThat(syllabus.getName()).isEqualTo("Intro updated");
+        assertThat(syllabus.getDescription()).isEqualTo("description updated");
         verify(syllabusRepository).save(syllabus);
         verify(courseRepository, never()).save(any());
     }
@@ -287,7 +313,7 @@ class SyllabusControllerTest {
     void shouldThrowNotFoundWhenUpdateSyllabusNotFound() {
         // Arrange
         UpdateSyllabusForm form = updateForm(99L, "avatar.png", 20, 5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         when(syllabusRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -301,7 +327,7 @@ class SyllabusControllerTest {
     void shouldThrowBadRequestWhenUpdateLessonSyllabusWithoutChapterId() {
         // Arrange
         UpdateSyllabusForm form = updateForm(1L, "avatar.png", 20, null);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
         syllabus.setAvatar("avatar.png");
@@ -319,7 +345,7 @@ class SyllabusControllerTest {
     void shouldThrowBadRequestWhenUpdateLessonSyllabusWithNonChapterId() {
         // Arrange - chapterId points to another lesson, not a chapter.
         UpdateSyllabusForm form = updateForm(1L, "avatar.png", 20, 9L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
         syllabus.setAvatar("avatar.png");
@@ -339,7 +365,7 @@ class SyllabusControllerTest {
     void shouldThrowBadRequestWhenUpdateLessonSyllabusWithChapterIdFromOtherCourse() {
         // Arrange - chapterId points to a real chapter, but of a different course.
         UpdateSyllabusForm form = updateForm(1L, "avatar.png", 20, 7L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Course otherCourse = course(2L);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
@@ -360,7 +386,7 @@ class SyllabusControllerTest {
     void shouldThrowBadRequestWhenUpdateLessonSyllabusWithUnknownChapterId() {
         // Arrange - chapterId does not resolve to any Syllabus row at all.
         UpdateSyllabusForm form = updateForm(1L, "avatar.png", 20, 999L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
         syllabus.setAvatar("avatar.png");
@@ -381,7 +407,7 @@ class SyllabusControllerTest {
         // avatar BEFORE calling the mapper, so no separate oldAvatar variable/mapper stubbing
         // is needed here.
         UpdateSyllabusForm form = updateForm(1L, "/avatar/new.png", 20, 5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus chapter = chapterSyllabus(5L, course, 20);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
@@ -401,7 +427,7 @@ class SyllabusControllerTest {
     void shouldNotDeleteOldAvatarWhenUpdateAvatarUnchanged() {
         // Arrange
         UpdateSyllabusForm form = updateForm(1L, "/avatar/same.png", 20, 5L);
-        BindingResult bindingResult = mock(BindingResult.class);
+        BindingResult bindingResult = new BeanPropertyBindingResult(form, "form");
         Course course = course(1L);
         Syllabus chapter = chapterSyllabus(5L, course, 20);
         Syllabus syllabus = lessonSyllabus(1L, course, 20);
@@ -442,13 +468,10 @@ class SyllabusControllerTest {
 
         Syllabus syllabus = new Syllabus();
         syllabus.setId(1L);
+        syllabus.setName("Intro");
         Page<Syllabus> page = new PageImpl<>(Collections.singletonList(syllabus), pageable, 1);
 
-        SyllabusDto dto = new SyllabusDto();
-        dto.setId(1L);
-
         when(syllabusRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(syllabusMapper.fromEntityToSyllabusDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<SyllabusDto>>> result = syllabusController.list(criteria, pageable);
@@ -456,6 +479,8 @@ class SyllabusControllerTest {
         // Assert
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
+        assertThat(result.getData().getContent().get(0).getId()).isEqualTo(1L);
+        assertThat(result.getData().getContent().get(0).getName()).isEqualTo("Intro");
         verify(syllabusRepository).findAll(any(Specification.class), eq(pageable));
     }
 
@@ -785,13 +810,10 @@ class SyllabusControllerTest {
 
         Syllabus syllabus = new Syllabus();
         syllabus.setId(1L);
+        syllabus.setName("Intro");
         Page<Syllabus> page = new PageImpl<>(Collections.singletonList(syllabus), pageable, 1);
 
-        SyllabusDto dto = new SyllabusDto();
-        dto.setId(1L);
-
         when(syllabusRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-        when(syllabusMapper.fromEntityToSyllabusDtoList(anyList())).thenReturn(Collections.singletonList(dto));
 
         // Act
         ApiMessageDto<ResponseListDto<List<SyllabusDto>>> result = syllabusController.publicList(criteria, pageable);
@@ -799,6 +821,7 @@ class SyllabusControllerTest {
         // Assert
         assertThat(result.getResult()).isTrue();
         assertThat(result.getData().getContent()).hasSize(1);
+        assertThat(result.getData().getContent().get(0).getName()).isEqualTo("Intro");
         assertThat(criteria.getStatus()).isEqualTo(AIConstant.STATUS_ACTIVE);
         verify(syllabusRepository).findAll(any(Specification.class), eq(pageable));
     }
