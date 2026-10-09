@@ -19,7 +19,6 @@ rm -rf release/application-dev.properties
 sed -i '' "s/{ENV}/prod/g" release/application.properties
 sed -i '' "s/{APP_ID}/$APP_ID/g" release/application-prod.properties
 sed -i '' "s/{PACKAGE_NAME}/$PACKAGE_NAME/g" release/application-prod.properties
-sed -i '' "s/{PACKAGE_NAME}/$PACKAGE_NAME/g" release/logback-spring.xml
 
 cp service-template.service release/$APP_ID.service
 sed -i '' "s/{CONFIG_LOCATION}/$(printf '%s\n' "$TARGET_DIR" | sed -e 's/[]\/$*.^[]/\\&/g')/g" release/$APP_ID.service

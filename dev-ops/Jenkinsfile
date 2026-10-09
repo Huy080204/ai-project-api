@@ -122,7 +122,7 @@ def buildDev(){
                 sshPut remote: remote, from: "./${BUILD_FOLER}/config/application.properties", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/"
 
                 // Init log dir
-                sshCommand remote: remote, command: "mkdir -p ${LOG_PATH} && rm -rf ${LOG_PATH}\\/${APP_NAME}.log  && touch ${LOG_PATH}\\/${APP_NAME}.log"
+                sshCommand remote: remote, command: "mkdir -p ${LOG_PATH} && rm -rf ${LOG_PATH}\\/${APP_NAME}.json  && touch ${LOG_PATH}\\/${APP_NAME}.json"
 
                 // Deploy log service
                 sshCommand remote: remote, command: "mv ${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/${APP_NAME}.conf /etc/rsyslog.d/${APP_NAME}.conf && systemctl restart rsyslog"
