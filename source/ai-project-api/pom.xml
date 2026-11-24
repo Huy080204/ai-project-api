@@ -10,7 +10,7 @@
     <description>AI Project Api</description>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <maven.test.skip>false</maven.test.skip>
         <spring-cloud.version>2021.0.9</spring-cloud.version>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>

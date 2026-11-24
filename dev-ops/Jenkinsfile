@@ -11,10 +11,9 @@ JAR_NAME = "ai-project-api-0.0.1.jar"
 
 
 APP_NAME = "ai-project-api"
-LOG_PATH="/var/log/ai-project-api"
 
 PORT_DEV=1000
-HOST_DEV="192.168.102.7"
+HOST_DEV="192.168.102.20"
 
 
 BUILD_FOLER="dev-ops"
@@ -63,7 +62,6 @@ def buildDev(){
             def jdkHome = tool name: 'jdk17', type: 'jdk'
             withEnv( ["PATH+MAVEN=/usr/bin", "JAVA_HOME=${jdkHome}", "PATH+JDK=${jdkHome}/bin"] ) {
                 sh """
-                    java -version
                     rm -rf dev-ops/src dev-ops/pom.xml dev-ops/target
                     cp -r source/ai-project-api/* dev-ops/
                     cd dev-ops
@@ -101,13 +99,6 @@ def buildDev(){
                 sshRemove remote: remote, path: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev"
                 sshCommand remote: remote, command: "mkdir -p ${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev"
 
-                // Replace some params by env on log template
-                LOG_PATH_ESC=LOG_PATH.replace("/", "\\/")
-                sh """
-                    sed -i 's/{APP_ID}/${APP_NAME}/g' ./${BUILD_FOLER}/logs-template.conf
-                    sed -i 's/{LOG_PATH}/${LOG_PATH_ESC}\\/${APP_NAME}/g' ./${BUILD_FOLER}/logs-template.conf
-                """
-
                 // Replace some params by env on application servic
                 TARTGET_FOLDER_DEPLOY_ESC=TARTGET_FOLDER_DEPLOY.replace("/", "\\/")
                 sh """
@@ -120,15 +111,8 @@ def buildDev(){
                 // Upload build to remote
                 sshPut remote: remote, from: "./${BUILD_FOLER}/target/${JAR_NAME}", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/app.jar"
                 sshPut remote: remote, from: "./${BUILD_FOLER}/service-template-dev.service", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/${APP_NAME}.service"
-                sshPut remote: remote, from: "./${BUILD_FOLER}/logs-template.conf", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/${APP_NAME}.conf"
                 sshPut remote: remote, from: "./${BUILD_FOLER}/config/application-dev.properties", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/"
                 sshPut remote: remote, from: "./${BUILD_FOLER}/config/application.properties", into: "${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/"
-
-                // Init log dir
-                sshCommand remote: remote, command: "mkdir -p ${LOG_PATH} && rm -rf ${LOG_PATH}\\/${APP_NAME}.json  && touch ${LOG_PATH}\\/${APP_NAME}.json"
-
-                // Deploy log service
-                sshCommand remote: remote, command: "mv ${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/${APP_NAME}.conf /etc/rsyslog.d/${APP_NAME}.conf && systemctl restart rsyslog"
 
                 // Deploy service
                 sshCommand remote: remote, command: "mv ${TARTGET_FOLDER_DEPLOY}/${APP_NAME}-dev/${APP_NAME}.service /lib/systemd/system/${APP_NAME}.service"
