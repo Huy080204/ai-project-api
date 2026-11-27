@@ -6,8 +6,10 @@ services:
     container_name: "{APP_NAME}"
     restart: unless-stopped
     network_mode: host
+    environment:
+      SPRING_PROFILES_ACTIVE: "{ENV}"
     volumes:
       - ./application.properties:/app/config/application.properties
-      - ./application-dev.properties:/app/config/application-dev.properties
-      - "{LOG_DIR}:/app/logs"
+      - ./application-{ENV}.properties:/app/config/application-{ENV}.properties
+      - "{LOG_DIR}:{LOG_DIR}"
       - "{UPLOAD_DIR}:{UPLOAD_DIR}"
