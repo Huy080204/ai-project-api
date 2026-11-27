@@ -6,12 +6,12 @@ TIMEZONE = "GMT+7"
 APP_BOOT_TIME_SECOND = 30
 SLACK_CHANNEL_NAME = "C0BML3ZENPK"
 
+APP_NAME = "ai-project-api"
+
 TARTGET_FOLDER_DEPLOY="/opt/deploy/ai_project/api/docker"
 LOG_DIR = "/var/log/${APP_NAME}"
 UPLOAD_DIR = "/opt/deploy/ai_project/uploads"
 JAR_NAME = "ai-project-api-0.0.1.jar"
-
-APP_NAME = "ai-project-api"
 
 REGISTRY = "huypham.jfrog.io/itz"
 TAG = "dev"
