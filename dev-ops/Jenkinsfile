@@ -14,8 +14,8 @@ UPLOAD_DIR = "/opt/deploy/ai_project/uploads"
 JAR_NAME = "ai-project-api-0.0.1.jar"
 
 REGISTRY = "huypham.jfrog.io/itz"
-TAG = "dev"
-IMAGE = "${REGISTRY}/${APP_NAME}:${TAG}"
+ENV = (_BRANCH_NAME == "master") ? "prod" : "dev"
+IMAGE = "${REGISTRY}/${APP_NAME}:${ENV}"
 
 PORT_DEV=1000
 HOST_DEV="192.168.102.20"
@@ -110,8 +110,9 @@ def buildDev(){
 
                 // Replace some params by env on docker-compose & application
                 sh """
-                    sed -i 's/{PORT}/${PORT_DEV}/g' ./${BUILD_FOLER}/config/application-dev.properties
+                    sed -i 's/{PORT}/${PORT_DEV}/g' ./${BUILD_FOLER}/config/application-${ENV}.properties
                     sed -i 's|{APP_NAME}|${APP_NAME}|g' ./${BUILD_FOLER}/docker-compose.yml
+                    sed -i 's|{ENV}|${ENV}|g' ./${BUILD_FOLER}/docker-compose.yml
                     sed -i 's|{IMAGE}|${IMAGE}|g' ./${BUILD_FOLER}/docker-compose.yml
                     sed -i 's|{LOG_DIR}|${LOG_DIR}|g' ./${BUILD_FOLER}/docker-compose.yml
                     sed -i 's|{UPLOAD_DIR}|${UPLOAD_DIR}|g' ./${BUILD_FOLER}/docker-compose.yml
@@ -121,7 +122,7 @@ def buildDev(){
                 sshCommand remote: remote, command: "mkdir -p ${TARTGET_FOLDER_DEPLOY}"
                 sshPut remote: remote, from: "./${BUILD_FOLER}/docker-compose.yml", into: "${TARTGET_FOLDER_DEPLOY}/"
                 sshPut remote: remote, from: "./${BUILD_FOLER}/config/application.properties", into: "${TARTGET_FOLDER_DEPLOY}/"
-                sshPut remote: remote, from: "./${BUILD_FOLER}/config/application-dev.properties", into: "${TARTGET_FOLDER_DEPLOY}/"
+                sshPut remote: remote, from: "./${BUILD_FOLER}/config/application-${ENV}.properties", into: "${TARTGET_FOLDER_DEPLOY}/"
 
                 // Pull image & run docker compose
                 sshCommand remote: remote, command: "cd ${TARTGET_FOLDER_DEPLOY} && docker compose up -d --pull always --remove-orphans && docker image prune -f > /dev/null && docker compose ps"
