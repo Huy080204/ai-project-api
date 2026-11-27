@@ -1,0 +1,13 @@
+name: "{APP_NAME}"
+
+services:
+  app:
+    image: "{IMAGE}"
+    container_name: "{APP_NAME}"
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./application.properties:/app/config/application.properties
+      - ./application-dev.properties:/app/config/application-dev.properties
+      - "{LOG_DIR}:/app/logs"
+      - "{UPLOAD_DIR}:{UPLOAD_DIR}"
