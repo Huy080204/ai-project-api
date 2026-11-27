@@ -125,7 +125,7 @@ def buildDev(){
                 sshPut remote: remote, from: "./${BUILD_FOLER}/config/application-${ENV}.properties", into: "${TARTGET_FOLDER_DEPLOY}/"
 
                 // Pull image & run docker compose
-                sshCommand remote: remote, command: "cd ${TARTGET_FOLDER_DEPLOY} && docker compose up -d --pull always --remove-orphans && docker image prune -f > /dev/null && docker compose ps"
+                sshCommand remote: remote, command: "cd ${TARTGET_FOLDER_DEPLOY} && docker compose up -d --pull always --force-recreate --remove-orphans && docker image prune -f > /dev/null && docker compose ps"
             }
 
         }
